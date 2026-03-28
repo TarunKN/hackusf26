@@ -1,0 +1,11 @@
+google-adk
+google-generativeai
+google-cloud-logging
+
+fastapi
+uvicorn[standard]
+python-multipart
+
+httpx
+pydantic
+python-dotenv
