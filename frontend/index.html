@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FormCoach — AI Fitness System</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:        #080b0f;
+  --bg1:       #0e1218;
+  --bg2:       #141920;
+  --bg3:       #1c2330;
+  --border:    rgba(255,255,255,0.07);
+  --border2:   rgba(255,255,255,0.12);
+  --lime:      #d4f34a;
+  --lime2:     #b8d93e;
+  --lime-dim:  rgba(212,243,74,0.10);
+  --lime-glow: rgba(212,243,74,0.05);
+  --orange:    #ff7c3a;
+  --orange-dim:rgba(255,124,58,0.12);
+  --red:       #ff4d4d;
+  --red-dim:   rgba(255,77,77,0.12);
+  --green:     #3dffa0;
+  --green-dim: rgba(61,255,160,0.10);
+  --blue:      #4da6ff;
+  --blue-dim:  rgba(77,166,255,0.10);
+  --text:      #e8edf2;
+  --text2:     #8a95a3;
+  --text3:     #4a5568;
+  --display:   'Bebas Neue', sans-serif;
+  --body:      'DM Sans', sans-serif;
+  --mono:      'DM Mono', monospace;
+  --r:         10px;
+  --r2:        6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--body);overflow-x:hidden}
+
+/* ── Grain overlay ─────────────────────────────────────── */
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity:.4}
+
+/* ── Layout ────────────────────────────────────────────── */
+.app{display:grid;grid-template-columns:220px 1fr;grid-template-rows:auto 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;height:60px;border-bottom:1px solid var(--border);
+  background:var(--bg1);position:sticky;top:0;z-index:100}
+.sidebar{padding:24px 0;border-right:1px solid var(--border);background:var(--bg1);
+  display:flex;flex-direction:column;gap:4px;position:sticky;top:60px;height:calc(100vh - 60px);overflow-y:auto}
+.content{padding:32px;overflow-y:auto;min-height:calc(100vh - 60px)}
+
+/* ── Topbar ────────────────────────────────────────────── */
+.logo{font-family:var(--display);font-size:26px;letter-spacing:2px;color:var(--lime)}
+.logo span{color:var(--text2)}
+.topbar-right{display:flex;align-items:center;gap:16px}
+.status-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:20px;
+  font-size:12px;color:var(--text2);font-family:var(--mono)}
+.status-dot{width:6px;height:6px;border-radius:50%;background:var(--lime);
+  box-shadow:0 0 6px var(--lime);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.user-chip{display:flex;align-items:center;gap:8px;cursor:pointer}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--lime),var(--orange));
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#000}
+
+/* ── Sidebar nav ───────────────────────────────────────── */
+.nav-section{padding:0 12px;margin-bottom:4px}
+.nav-label{font-size:10px;letter-spacing:2px;color:var(--text3);font-family:var(--mono);
+  text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--r2);
+  cursor:pointer;transition:all .15s;color:var(--text2);font-size:14px;
+  border:1px solid transparent}
+.nav-item:hover{background:var(--bg2);color:var(--text)}
+.nav-item.active{background:var(--lime-dim);border-color:rgba(212,243,74,.2);color:var(--lime)}
+.nav-icon{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nav-badge{margin-left:auto;background:var(--orange);color:#000;font-size:10px;font-family:var(--mono);
+  padding:1px 6px;border-radius:10px;font-weight:500}
+
+/* ── Page heading ──────────────────────────────────────── */
+.page-header{margin-bottom:32px}
+.page-title{font-family:var(--display);font-size:48px;letter-spacing:3px;line-height:1;
+  color:var(--text)}
+.page-title em{color:var(--lime);font-style:normal}
+.page-sub{color:var(--text2);font-size:14px;margin-top:8px;max-width:500px;line-height:1.6}
+
+/* ── Cards ─────────────────────────────────────────────── */
+.card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);padding:24px;
+  transition:border-color .2s}
+.card:hover{border-color:var(--border2)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.card-title{font-size:11px;letter-spacing:2px;color:var(--text2);font-family:var(--mono);text-transform:uppercase}
+.card-accent{border-top:2px solid var(--lime)}
+.card-orange{border-top:2px solid var(--orange)}
+.card-blue{border-top:2px solid var(--blue)}
+.card-green{border-top:2px solid var(--green)}
+
+/* ── Grid layouts ──────────────────────────────────────── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:900px){.grid-4{grid-template-columns:1fr 1fr}.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}.app{grid-template-columns:1fr}}
+
+/* ── Stat tiles ────────────────────────────────────────── */
+.stat-tile{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px}
+.stat-label{font-size:11px;letter-spacing:1px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;margin-bottom:8px}
+.stat-value{font-family:var(--display);font-size:36px;letter-spacing:1px;line-height:1}
+.stat-sub{font-size:12px;color:var(--text2);margin-top:4px}
+.stat-lime{color:var(--lime)}
+.stat-orange{color:var(--orange)}
+.stat-blue{color:var(--blue)}
+.stat-green{color:var(--green)}
+
+/* ── Progress bar ──────────────────────────────────────── */
+.progress-bar{height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;margin-top:10px}
+.progress-fill{height:100%;border-radius:3px;transition:width 1s ease}
+.fill-lime{background:var(--lime)}
+.fill-orange{background:var(--orange)}
+.fill-blue{background:var(--blue)}
+.fill-green{background:var(--green)}
+.fill-red{background:var(--red)}
+
+/* ── Buttons ───────────────────────────────────────────── */
+.btn{padding:10px 20px;border:none;border-radius:var(--r2);font-family:var(--body);
+  font-size:14px;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--lime);color:#000;font-weight:500}
+.btn-primary:hover{background:var(--lime2);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text)}
+.btn-danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,77,77,.2)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+.btn-sm{padding:6px 14px;font-size:12px}
+
+/* ── Form elements ─────────────────────────────────────── */
+label.field-label{display:block;font-size:11px;letter-spacing:1px;color:var(--text2);
+  font-family:var(--mono);text-transform:uppercase;margin-bottom:6px}
+input[type=text],input[type=number],input[type=email],input[type=password],select,textarea{
+  width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);
+  padding:10px 14px;color:var(--text);font-family:var(--body);font-size:14px;outline:none;
+  transition:border-color .2s;appearance:none}
+input:focus,select:focus,textarea:focus{border-color:rgba(212,243,74,.4)}
+textarea{resize:vertical;line-height:1.6;min-height:90px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{margin-bottom:16px}
+
+/* ── Tags / chips ──────────────────────────────────────── */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;
+  font-size:12px;font-family:var(--mono);border:1px solid;cursor:pointer;transition:all .15s;user-select:none}
+.chip-lime{background:var(--lime-dim);border-color:rgba(212,243,74,.3);color:var(--lime)}
+.chip-orange{background:var(--orange-dim);border-color:rgba(255,124,58,.3);color:var(--orange)}
+.chip-red{background:var(--red-dim);border-color:rgba(255,77,77,.3);color:var(--red)}
+.chip-blue{background:var(--blue-dim);border-color:rgba(77,166,255,.3);color:var(--blue)}
+.chip-green{background:var(--green-dim);border-color:rgba(61,255,160,.3);color:var(--green)}
+.chip-gray{background:var(--bg2);border-color:var(--border);color:var(--text2)}
+
+/* ── Severity bar ──────────────────────────────────────── */
+.issue-item{display:flex;gap:14px;padding:16px;background:var(--bg2);border-radius:var(--r2);
+  border:1px solid var(--border);margin-bottom:8px;animation:fadeUp .3s ease forwards;opacity:0}
+@keyframes fadeUp{to{opacity:1;transform:none}from{opacity:0;transform:translateY(8px)}}
+.issue-sev-bar{width:4px;border-radius:2px;flex-shrink:0;min-height:44px}
+.sev-minor{background:var(--green)}
+.sev-moderate{background:var(--orange)}
+.sev-major{background:var(--red)}
+.issue-body{flex:1}
+.issue-title{font-weight:500;font-size:14px;margin-bottom:4px}
+.issue-desc{font-size:13px;color:var(--text2);line-height:1.6}
+.issue-cue{margin-top:8px;padding:8px 12px;background:var(--lime-glow);
+  border-left:2px solid var(--lime);border-radius:0 4px 4px 0;
+  font-size:12px;color:var(--lime);font-family:var(--mono);line-height:1.6}
+
+/* ── Score ring ────────────────────────────────────────── */
+.score-ring{position:relative;width:100px;height:100px;flex-shrink:0}
+.score-ring svg{transform:rotate(-90deg)}
+.score-ring circle{fill:none;stroke-width:7}
+.score-ring .track{stroke:var(--bg3)}
+.score-ring .fill{stroke-dasharray:283;stroke-dashoffset:283;transition:stroke-dashoffset 1.2s ease;stroke-linecap:round}
+.score-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.score-num{font-family:var(--display);font-size:30px;letter-spacing:1px;line-height:1}
+.score-denom{font-size:10px;color:var(--text2);font-family:var(--mono)}
+
+/* ── Upload zone ───────────────────────────────────────── */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r);min-height:220px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  cursor:pointer;position:relative;transition:all .2s;background:var(--bg2)}
+.upload-zone:hover,.upload-zone.drag{border-color:rgba(212,243,74,.5);background:var(--lime-glow)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;z-index:2}
+.upload-zone.has-media{padding:0;border-style:solid;border-color:rgba(212,243,74,.25)}
+.upload-zone img,.upload-zone video{width:100%;border-radius:8px;display:block;max-height:300px;object-fit:cover}
+.upload-icon{width:52px;height:52px;border:1px solid var(--border2);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:var(--text3)}
+.upload-hint{font-size:13px;color:var(--text2);text-align:center;line-height:1.6}
+.upload-hint strong{color:var(--lime)}
+.upload-hint small{display:block;font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:4px}
+
+/* ── Chat area ─────────────────────────────────────────── */
+.chat-history{display:flex;flex-direction:column;gap:16px;margin-bottom:20px;
+  max-height:420px;overflow-y:auto;padding-right:4px}
+.chat-history::-webkit-scrollbar{width:4px}
+.chat-history::-webkit-scrollbar-track{background:transparent}
+.chat-history::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:2px}
+.msg{display:flex;gap:10px;animation:fadeUp .25s ease forwards;opacity:0}
+.msg.user{flex-direction:row-reverse}
+.msg-avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500}
+.msg-avatar.agent{background:var(--bg3);border:1px solid var(--border2);color:var(--lime)}
+.msg-avatar.user{background:linear-gradient(135deg,var(--lime),var(--orange));color:#000}
+.msg-bubble{padding:12px 16px;border-radius:var(--r);max-width:85%;font-size:14px;line-height:1.7}
+.msg.agent .msg-bubble{background:var(--bg2);border:1px solid var(--border)}
+.msg.user .msg-bubble{background:var(--lime-dim);border:1px solid rgba(212,243,74,.2);color:var(--lime)}
+.chat-input-row{display:flex;gap:10px}
+.chat-input-row input{flex:1}
+.typing-indicator{display:flex;gap:4px;padding:12px 16px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:var(--r);width:fit-content;display:none}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);
+  animation:typingBounce 1.2s infinite}
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes typingBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+
+/* ── Weekly plan grid ──────────────────────────────────── */
+.plan-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:16px}
+.plan-day{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);
+  padding:14px 12px;min-height:120px;transition:border-color .2s;cursor:pointer}
+.plan-day:hover{border-color:var(--border2)}
+.plan-day.training{border-top:2px solid var(--lime)}
+.plan-day.rest{border-top:2px solid var(--bg3)}
+.day-name{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--text2);
+  text-transform:uppercase;margin-bottom:8px}
+.day-type{font-weight:500;font-size:13px;margin-bottom:6px}
+.day-exercises{font-size:11px;color:var(--text3);line-height:1.8}
+
+/* ── Macro ring set ────────────────────────────────────── */
+.macro-rings{display:flex;gap:24px;justify-content:center;flex-wrap:wrap}
+.macro-ring-item{display:flex;flex-direction:column;align-items:center;gap:8px}
+.macro-ring-item .ring-label{font-size:12px;color:var(--text2)}
+.macro-ring-item .ring-val{font-family:var(--display);font-size:22px;letter-spacing:1px}
+.mini-ring{position:relative;width:72px;height:72px}
+.mini-ring svg{transform:rotate(-90deg)}
+.mini-ring circle{fill:none;stroke-width:5}
+.mini-ring .mt{stroke:var(--bg3)}
+.mini-ring .mf{stroke-dasharray:200;stroke-dashoffset:200;transition:stroke-dashoffset 1s ease;stroke-linecap:round}
+
+/* ── Tabs ──────────────────────────────────────────────── */
+.tabs{display:flex;gap:2px;background:var(--bg2);padding:4px;border-radius:var(--r2);
+  margin-bottom:24px;border:1px solid var(--border)}
+.tab{padding:8px 20px;border-radius:4px;cursor:pointer;font-size:13px;color:var(--text2);
+  transition:all .15s;flex:1;text-align:center}
+.tab.active{background:var(--bg1);color:var(--text);border:1px solid var(--border)}
+
+/* ── Alert banner ──────────────────────────────────────── */
+.alert{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:var(--r2);
+  font-size:13px;margin-bottom:16px;display:none}
+.alert.show{display:flex}
+.alert-lime{background:var(--lime-dim);border:1px solid rgba(212,243,74,.2);color:var(--lime)}
+.alert-red{background:var(--red-dim);border:1px solid rgba(255,77,77,.2);color:var(--red)}
+.alert-orange{background:var(--orange-dim);border:1px solid rgba(255,124,58,.2);color:var(--orange)}
+.alert svg{flex-shrink:0}
+
+/* ── Spinner ───────────────────────────────────────────── */
+.spin{width:16px;height:16px;border:2px solid rgba(0,0,0,.2);border-top-color:#000;
+  border-radius:50%;animation:spin .6s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin-lime{border-color:rgba(212,243,74,.2);border-top-color:var(--lime)}
+
+/* ── Hidden ────────────────────────────────────────────── */
+.view{display:none}
+.view.active{display:block}
+
+/* ── Onboarding overlay ────────────────────────────────── */
+#onboard{position:fixed;inset:0;background:rgba(8,11,15,.97);z-index:500;
+  display:flex;align-items:center;justify-content:center;padding:24px}
+.onboard-card{background:var(--bg1);border:1px solid var(--border2);border-radius:16px;
+  padding:40px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto}
+.onboard-step{display:none}
+.onboard-step.active{display:block}
+.step-indicator{display:flex;gap:6px;margin-bottom:32px}
+.step-dot{height:3px;flex:1;border-radius:2px;background:var(--bg3);transition:background .3s}
+.step-dot.done{background:var(--lime)}
+.onboard-title{font-family:var(--display);font-size:36px;letter-spacing:2px;margin-bottom:8px}
+.onboard-sub{color:var(--text2);font-size:14px;margin-bottom:28px;line-height:1.6}
+
+/* ── Goal chips ────────────────────────────────────────── */
+.goal-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.goal-chip{padding:12px 16px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r2);cursor:pointer;transition:all .15s;text-align:left}
+.goal-chip:hover{border-color:var(--border2)}
+.goal-chip.selected{background:var(--lime-dim);border-color:rgba(212,243,74,.4);color:var(--lime)}
+.goal-chip .gc-name{font-weight:500;font-size:14px;margin-bottom:2px}
+.goal-chip .gc-sub{font-size:12px;color:var(--text2)}
+.goal-chip.selected .gc-sub{color:rgba(212,243,74,.7)}
+
+/* ── Scrollbar global ──────────────────────────────────── */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+
+/* ── API config bar ────────────────────────────────────── */
+.api-bar{background:var(--orange-dim);border:1px solid rgba(255,124,58,.2);border-radius:var(--r2);
+  padding:12px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;
+  font-size:13px;color:var(--orange);display:none}
+.api-bar.show{display:flex}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     ONBOARDING OVERLAY
+═══════════════════════════════════════════════════════════════════ -->
+<div id="onboard">
+  <div class="onboard-card">
+    <div class="step-indicator">
+      <div class="step-dot done" id="sd0"></div>
+      <div class="step-dot" id="sd1"></div>
+      <div class="step-dot" id="sd2"></div>
+      <div class="step-dot" id="sd3"></div>
+    </div>
+
+    <!-- Step 0: Welcome -->
+    <div class="onboard-step active" id="step0">
+      <div class="onboard-title">WELCOME TO<br><em style="color:var(--lime)">FORMCOACH</em></div>
+      <div class="onboard-sub">Your AI-powered fitness system. Four specialist agents — trainer, nutritionist, form coach, and workout planner — working together to keep you progressing safely.</div>
+      <div class="field">
+        <label class="field-label">API Base URL</label>
+        <input type="text" id="ob-api-url" value="http://localhost:8000" placeholder="http://localhost:8000">
+      </div>
+      <div class="field">
+        <label class="field-label">Gemini API Key (for form analysis)</label>
+        <input type="password" id="ob-api-key" placeholder="AIza...">
+      </div>
+      <button class="btn btn-primary" onclick="nextStep()" style="width:100%;justify-content:center;padding:14px">
+        Let's go →
+      </button>
+    </div>
+
+    <!-- Step 1: Profile -->
+    <div class="onboard-step" id="step1">
+      <div class="onboard-title">YOUR<br><em style="color:var(--lime)">PROFILE</em></div>
+      <div class="onboard-sub">This lets every agent personalise their advice to your body and history.</div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">First name</label><input type="text" id="ob-name" placeholder="Alex"></div>
+        <div class="field"><label class="field-label">Age</label><input type="number" id="ob-age" placeholder="28" min="13" max="99"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">Weight (kg)</label><input type="number" id="ob-weight" placeholder="75" step="0.5"></div>
+        <div class="field"><label class="field-label">Height (cm)</label><input type="number" id="ob-height" placeholder="175"></div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Sex</label>
+          <select id="ob-sex"><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select>
+        </div>
+        <div class="field">
+          <label class="field-label">Experience</label>
+          <select id="ob-exp"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" onclick="prevStep()">← Back</button>
+        <button class="btn btn-primary" onclick="nextStep()" style="flex:1;justify-content:center">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Goals -->
+    <div class="onboard-step" id="step2">
+      <div class="onboard-title">YOUR<br><em style="color:var(--lime)">GOALS</em></div>
+      <div class="onboard-sub">Select all that apply. Agents will prioritise accordingly.</div>
+      <div class="goal-grid" style="margin-bottom:20px">
+        <div class="goal-chip" onclick="toggleGoal(this,'strength')">
+          <div class="gc-name">💪 Strength</div><div class="gc-sub">Get stronger, hit PRs</div></div>
+        <div class="goal-chip" onclick="toggleGoal(this,'hypertrophy')">
+          <div class="gc-name">📈 Hypertrophy</div><div class="gc-sub">Build muscle mass</div></div>
+        <div class="goal-chip" onclick="toggleGoal(this,'fat_loss')">
+          <div class="gc-name">🔥 Fat loss</div><div class="gc-sub">Lose body fat</div></div>
+        <div class="goal-chip" onclick="toggleGoal(this,'endurance')">
+          <div class="gc-name">🏃 Endurance</div><div class="gc-sub">Improve fitness</div></div>
+        <div class="goal-chip" onclick="toggleGoal(this,'general_health')">
+          <div class="gc-name">❤️ General health</div><div class="gc-sub">Feel and move better</div></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="prevStep()">← Back</button>
+        <button class="btn btn-primary" onclick="nextStep()" style="flex:1;justify-content:center">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Injuries & Diet -->
+    <div class="onboard-step" id="step3">
+      <div class="onboard-title">HEALTH<br><em style="color:var(--lime)">HISTORY</em></div>
+      <div class="onboard-sub">Optional but important. Agents use this to keep you safe.</div>
+      <div class="field">
+        <label class="field-label">Injury history</label>
+        <input type="text" id="ob-injuries" placeholder="e.g. left knee pain, lower back disc">
+      </div>
+      <div class="field">
+        <label class="field-label">Dietary restrictions</label>
+        <input type="text" id="ob-diet" placeholder="e.g. vegan, gluten-free, dairy-free">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" onclick="prevStep()">← Back</button>
+        <button class="btn btn-primary" onclick="finishOnboard()" style="flex:1;justify-content:center;padding:14px">
+          Start training →
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     MAIN APP
+═══════════════════════════════════════════════════════════════════ -->
+<div class="app" id="mainApp" style="display:none">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">FORM<span>COACH</span></div>
+    <div class="topbar-right">
+      <div class="status-pill"><div class="status-dot"></div><span id="connStatus">Agents ready</span></div>
+      <div class="user-chip" onclick="showView('settings')">
+        <div class="avatar" id="userAvatar">A</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <div class="nav-item active" onclick="showView('dashboard')">
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>
+        Dashboard
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Agents</div>
+      <div class="nav-item" onclick="showView('formcoach')">
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+        Form Coach
+        <span class="nav-badge" id="formBadge" style="display:none">!</span>
+      </div>
+      <div class="nav-item" onclick="showView('nutrition')">
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/><path d="M8 12h8M12 8v8"/></svg></div>
+        Nutrition
+      </div>
+      <div class="nav-item" onclick="showView('workout')">
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 5v14M18 5v14M6 12h12M2 8h4M18 8h4M2 16h4M18 16h4"/></svg></div>
+        Workout Planner
+      </div>
+      <div class="nav-item" onclick="showView('chat')">
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        Ask Orchestrator
+      </div>
+    </div>
+    <div class="nav-section" style="margin-top:auto">
+      <div class="nav-item" onclick="showView('settings')">
+        <div class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
+        Settings
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTENT ───────────────────────────────────────── -->
+  <div class="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="view active" id="view-dashboard">
+      <div class="page-header">
+        <div class="page-title">GOOD <em id="greeting">MORNING</em>,<br><span id="dashName">ATHLETE</span></div>
+        <div class="page-sub">Here's your system snapshot. All agents are monitoring your progress.</div>
+      </div>
+
+      <!-- Alert banners -->
+      <div class="alert alert-red" id="alertMedical" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="alertMedicalText">Medical review flagged — check Form Coach for details.</span>
+      </div>
+      <div class="alert alert-orange" id="alertMood" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Low energy detected — training volume has been adjusted.
+      </div>
+
+      <!-- Stat tiles -->
+      <div class="grid-4" style="margin-bottom:20px">
+        <div class="stat-tile">
+          <div class="stat-label">Form score</div>
+          <div class="stat-value stat-lime" id="dashFormScore">—</div>
+          <div class="stat-sub" id="dashFormEx">No analysis yet</div>
+          <div class="progress-bar"><div class="progress-fill fill-lime" id="dashFormBar" style="width:0%"></div></div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Calories today</div>
+          <div class="stat-value stat-orange" id="dashCals">0</div>
+          <div class="stat-sub" id="dashCalsTarget">of — target</div>
+          <div class="progress-bar"><div class="progress-fill fill-orange" id="dashCalsBar" style="width:0%"></div></div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Sessions logged</div>
+          <div class="stat-value stat-blue" id="dashSessions">0</div>
+          <div class="stat-sub">Total completed</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-label">Mood / energy</div>
+          <div class="stat-value stat-green" id="dashMood">—</div>
+          <div class="stat-sub">Today's check-in</div>
+        </div>
+      </div>
+
+      <!-- Mood check-in card -->
+      <div class="grid-2">
+        <div class="card card-accent">
+          <div class="card-header"><span class="card-title">Daily check-in</span></div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Mood (1-10)</label>
+              <input type="number" id="moodInput" min="1" max="10" placeholder="7">
+            </div>
+            <div class="field">
+              <label class="field-label">Energy (1-10)</label>
+              <input type="number" id="energyInput" min="1" max="10" placeholder="7">
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">How are you feeling?</label>
+            <textarea id="moodNotes" placeholder="Optional — any context helps the agents adapt your plan..."></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="submitCheckin()" style="width:100%;justify-content:center">
+            <div class="spin" id="checkinSpin"></div>
+            Log check-in
+          </button>
+        </div>
+
+        <div class="card card-blue">
+          <div class="card-header"><span class="card-title">Active flags</span></div>
+          <div id="flagsList" style="display:flex;flex-direction:column;gap:8px">
+            <div style="color:var(--text3);font-size:13px;text-align:center;padding:20px 0">No active flags — all agents nominal.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ FORM COACH ══ -->
+    <div class="view" id="view-formcoach">
+      <div class="page-header">
+        <div class="page-title">FORM<br><em>COACH</em></div>
+        <div class="page-sub">Upload a photo or video. The agent sends it to Gemini Vision with your profile context and returns biomechanical coaching cues.</div>
+      </div>
+
+      <div class="grid-2" style="align-items:start">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Media upload</span></div>
+            <div class="upload-zone" id="uploadZone">
+              <input type="file" id="mediaInput" accept="image/*,video/*" onchange="handleMedia(this.files[0])">
+              <div class="upload-icon" id="uploadIcon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              </div>
+              <div class="upload-hint" id="uploadHint">
+                <strong>Drop file or click</strong><small>JPG, PNG, MP4, MOV · max 20MB</small>
+              </div>
+              <div id="mediaPreview" style="display:none;width:100%"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><span class="card-title">Analysis config</span></div>
+            <div class="field">
+              <label class="field-label">Exercise</label>
+              <select id="exerciseSelect">
+                <option value="">Select exercise</option>
+                <option>Barbell back squat</option><option>Barbell front squat</option>
+                <option>Conventional deadlift</option><option>Sumo deadlift</option>
+                <option>Romanian deadlift</option><option>Barbell bench press</option>
+                <option>Barbell overhead press</option><option>Barbell row</option>
+                <option>Pull-up / chin-up</option><option>Dumbbell lunge</option>
+                <option>Push-up</option><option>Kettlebell swing</option>
+                <option value="other">Other...</option>
+              </select>
+            </div>
+            <div class="field" id="customExField" style="display:none">
+              <label class="field-label">Describe exercise</label>
+              <input type="text" id="customEx" placeholder="e.g. goblet squat">
+            </div>
+            <div class="field">
+              <label class="field-label">Focus areas</label>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px" id="focusChips">
+                <div class="chip chip-gray" onclick="toggleFocus(this)">Spine neutral</div>
+                <div class="chip chip-gray" onclick="toggleFocus(this)">Knee tracking</div>
+                <div class="chip chip-gray" onclick="toggleFocus(this)">Hip hinge</div>
+                <div class="chip chip-gray" onclick="toggleFocus(this)">Range of motion</div>
+                <div class="chip chip-gray" onclick="toggleFocus(this)">Shoulder position</div>
+                <div class="chip chip-gray" onclick="toggleFocus(this)">Foot placement</div>
+              </div>
+            </div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="runFormAnalysis()">
+              <div class="spin" id="analysisSpin"></div>
+              <span id="analysisLabel">Analyze form</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Results -->
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div id="formEmpty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;color:var(--text3);text-align:center;gap:12px;border:1px dashed var(--border);border-radius:var(--r);padding:40px">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            <p style="font-size:14px;max-width:220px;line-height:1.7">Upload a photo or video and configure the exercise to see AI coaching feedback here.</p>
+          </div>
+
+          <div id="formResults" style="display:none;flex-direction:column;gap:16px">
+            <!-- Score card -->
+            <div class="card">
+              <div style="display:flex;align-items:center;gap:20px">
+                <div class="score-ring">
+                  <svg width="100" height="100" viewBox="0 0 100 100">
+                    <circle class="track" cx="50" cy="50" r="45"/>
+                    <circle class="fill" id="formScoreArc" cx="50" cy="50" r="45" stroke="var(--lime)"/>
+                  </svg>
+                  <div class="score-center">
+                    <div class="score-num" id="formScoreNum">—</div>
+                    <div class="score-denom">/100</div>
+                  </div>
+                </div>
+                <div style="flex:1">
+                  <div style="font-family:var(--display);font-size:24px;letter-spacing:1px;margin-bottom:6px" id="formScoreLabel">—</div>
+                  <div style="font-size:13px;color:var(--text2);line-height:1.6" id="formScoreSummary">—</div>
+                  <div style="margin-top:12px" id="safetyChip"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Issues -->
+            <div class="card" id="formIssuesCard" style="display:none">
+              <div class="card-header">
+                <span class="card-title">Issues detected</span>
+                <span id="issueCountLabel" style="font-family:var(--mono);font-size:11px;color:var(--text2)"></span>
+              </div>
+              <div id="formIssuesList"></div>
+            </div>
+
+            <!-- Cues -->
+            <div class="card card-accent" id="formCuesCard" style="display:none">
+              <div class="card-header"><span class="card-title">Coaching cues</span></div>
+              <ul id="formCuesList" style="list-style:none;display:flex;flex-direction:column;gap:10px"></ul>
+            </div>
+
+            <!-- Visibility notes -->
+            <div id="formVisNotes" style="display:none;padding:12px 16px;background:var(--bg2);border-radius:var(--r2);font-size:12px;color:var(--text2);font-family:var(--mono);border:1px solid var(--border)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ NUTRITION ══ -->
+    <div class="view" id="view-nutrition">
+      <div class="page-header">
+        <div class="page-title">NUTRI<br><em>TION</em></div>
+        <div class="page-sub">Personalised macros, food logging, and meal suggestions — all cross-referenced with your training schedule.</div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="switchNutTab(this,'macros')">Macro targets</div>
+        <div class="tab" onclick="switchNutTab(this,'log')">Food log</div>
+        <div class="tab" onclick="switchNutTab(this,'meals')">Meal suggestions</div>
+      </div>
+
+      <!-- Macros tab -->
+      <div id="nutTab-macros">
+        <div id="macrosEmpty" style="text-align:center;padding:40px;color:var(--text3)">
+          <p style="margin-bottom:16px;font-size:14px">Calculate your personalised daily macro targets.</p>
+          <button class="btn btn-primary" onclick="calcMacros()">
+            <div class="spin spin-lime" id="macroSpin" style="display:none"></div>
+            Calculate my macros
+          </button>
+        </div>
+        <div id="macrosResults" style="display:none">
+          <div class="card card-orange" style="margin-bottom:20px">
+            <div class="card-header"><span class="card-title">Daily targets</span></div>
+            <div class="macro-rings" id="macroRings"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Calculation notes</span></div>
+            <div id="macroNotes" style="font-size:13px;color:var(--text2);line-height:1.8;font-family:var(--mono)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Food log tab -->
+      <div id="nutTab-log" style="display:none">
+        <div class="grid-2" style="align-items:start">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Log food</span></div>
+            <div class="field"><label class="field-label">Food name</label><input type="text" id="foodName" placeholder="e.g. Chicken breast 150g"></div>
+            <div class="field-row">
+              <div class="field"><label class="field-label">Calories</label><input type="number" id="foodCals" placeholder="250" min="0"></div>
+              <div class="field"><label class="field-label">Protein (g)</label><input type="number" id="foodProtein" placeholder="40" step="0.1"></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label class="field-label">Carbs (g)</label><input type="number" id="foodCarbs" placeholder="0" step="0.1"></div>
+              <div class="field"><label class="field-label">Fat (g)</label><input type="number" id="foodFat" placeholder="5" step="0.1"></div>
+            </div>
+            <div class="field">
+              <label class="field-label">Meal type</label>
+              <select id="foodMeal"><option>breakfast</option><option>lunch</option><option>dinner</option><option selected>snack</option></select>
+            </div>
+            <button class="btn btn-primary" onclick="logFood()" style="width:100%;justify-content:center">Log food</button>
+          </div>
+          <div class="card card-orange">
+            <div class="card-header"><span class="card-title">Today's totals</span></div>
+            <div id="foodTotals" style="display:flex;flex-direction:column;gap:12px">
+              <div style="color:var(--text3);font-size:13px">No food logged yet today.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:20px">
+          <div class="card-header"><span class="card-title">Log entries</span></div>
+          <div id="foodLog" style="display:flex;flex-direction:column;gap:8px">
+            <div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Nothing logged yet.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meals tab -->
+      <div id="nutTab-meals" style="display:none">
+        <div class="card" style="margin-bottom:20px">
+          <div class="card-header"><span class="card-title">Get suggestions</span></div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Meal type</label>
+              <select id="mealTypeSelect"><option>breakfast</option><option>lunch</option><option>dinner</option><option>snack</option><option>pre_workout</option><option>post_workout</option></select>
+            </div>
+            <div class="field">
+              <label class="field-label">Calorie budget (optional)</label>
+              <input type="number" id="mealBudget" placeholder="500">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="getMealSuggestions()">
+            <div class="spin" id="mealSpin"></div>
+            Get suggestions from agent
+          </button>
+        </div>
+        <div id="mealSuggestionsArea" style="color:var(--text3);font-size:13px;text-align:center;padding:40px">
+          Request suggestions to see personalised meal ideas from the nutrition agent.
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ WORKOUT PLANNER ══ -->
+    <div class="view" id="view-workout">
+      <div class="page-header">
+        <div class="page-title">WORKOUT<br><em>PLANNER</em></div>
+        <div class="page-sub">Periodised training plans, session tracking, and autonomous load progression.</div>
+      </div>
+
+      <div class="grid-2" style="align-items:start;margin-bottom:20px">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Generate plan</span></div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">Days / week</label>
+              <select id="planDays"><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option></select>
+            </div>
+            <div class="field">
+              <label class="field-label">Split style</label>
+              <select id="planSplit"><option value="PPL">Push / Pull / Legs</option><option value="Upper_Lower">Upper / Lower</option><option value="Full_Body">Full Body</option></select>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="generatePlan()" style="width:100%;justify-content:center">
+            <div class="spin" id="planSpin"></div>
+            <span id="planLabel">Generate plan</span>
+          </button>
+        </div>
+        <div class="card card-blue">
+          <div class="card-header"><span class="card-title">Log session</span></div>
+          <div class="field">
+            <label class="field-label">Session name</label>
+            <input type="text" id="sessionName" placeholder="e.g. Push Day A">
+          </div>
+          <div class="field-row">
+            <div class="field"><label class="field-label">Overall RPE</label><input type="number" id="sessionRPE" min="1" max="10" placeholder="7.5" step="0.5"></div>
+            <div class="field"><label class="field-label">Notes</label><input type="text" id="sessionNotes" placeholder="Optional"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="logSession()" style="width:100%;justify-content:center">Log completed session</button>
+        </div>
+      </div>
+
+      <!-- Weekly plan display -->
+      <div class="card" id="planCard" style="display:none">
+        <div class="card-header"><span class="card-title">Week 1 plan</span><span id="planSplitLabel" style="font-family:var(--mono);font-size:11px;color:var(--text2)"></span></div>
+        <div class="plan-grid" id="planGrid"></div>
+      </div>
+
+      <div id="planEmpty" style="text-align:center;padding:60px;color:var(--text3);border:1px dashed var(--border);border-radius:var(--r);margin-top:4px">
+        <p style="font-size:14px">Generate a plan to see your weekly training schedule.</p>
+      </div>
+    </div>
+
+    <!-- ══ CHAT / ORCHESTRATOR ══ -->
+    <div class="view" id="view-chat">
+      <div class="page-header">
+        <div class="page-title">ASK THE<br><em>ORCHESTRATOR</em></div>
+        <div class="page-sub">Talk directly to the root agent. It coordinates all specialist agents and proactively connects signals across your training, nutrition, and form.</div>
+      </div>
+      <div class="card" style="max-width:760px">
+        <div class="chat-history" id="chatHistory">
+          <div class="msg agent">
+            <div class="msg-avatar agent">FC</div>
+            <div class="msg-bubble">Hey! I'm your FormCoach orchestrator. I coordinate your trainer, nutritionist, and form coach agents. What would you like to work on today?</div>
+          </div>
+        </div>
+        <div class="typing-indicator" id="typingIndicator">
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        </div>
+        <div class="chat-input-row" style="margin-top:12px">
+          <input type="text" id="chatInput" placeholder="Ask anything — form, nutrition, plan adjustments..." onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="btn btn-primary" onclick="sendChat()">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div class="view" id="view-settings">
+      <div class="page-header">
+        <div class="page-title">SETTINGS</div>
+      </div>
+      <div class="grid-2" style="max-width:760px;align-items:start">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Connection</span></div>
+          <div class="field"><label class="field-label">API base URL</label><input type="text" id="settingsApiUrl"></div>
+          <div class="field"><label class="field-label">Gemini API Key</label><input type="password" id="settingsApiKey" placeholder="AIza..."></div>
+          <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Your profile</span></div>
+          <div id="profileSummary" style="font-size:13px;color:var(--text2);line-height:2;font-family:var(--mono)"></div>
+          <button class="btn btn-danger btn-sm" onclick="resetAll()" style="margin-top:16px">Reset & re-onboard</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+const S = {
+  apiUrl:    'http://localhost:8000',
+  geminiKey: '',
+  profile:   {},
+  goals:     [],
+  sessionId: 'sess_' + Math.random().toString(36).slice(2),
+  macros:    null,
+  foodLog:   [],
+  formAnalyses: [],
+  sessions:  0,
+  mood:      null,
+  energy:    null,
+  flags:     {},
+  currentView: 'dashboard',
+};
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const v = document.getElementById('view-' + name);
+  if (v) v.classList.add('active');
+  event?.currentTarget?.classList.add('active');
+  S.currentView = name;
+  if (name === 'dashboard') refreshDashboard();
+  if (name === 'settings') loadSettings();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ONBOARDING
+// ═══════════════════════════════════════════════════════════
+let obStep = 0;
+function nextStep() {
+  obStep++;
+  document.querySelectorAll('.onboard-step').forEach((s,i) => s.classList.toggle('active', i===obStep));
+  document.querySelectorAll('.step-dot').forEach((d,i) => d.classList.toggle('done', i<obStep));
+}
+function prevStep() {
+  obStep--;
+  document.querySelectorAll('.onboard-step').forEach((s,i) => s.classList.toggle('active', i===obStep));
+  document.querySelectorAll('.step-dot').forEach((d,i) => d.classList.toggle('done', i<obStep));
+}
+function toggleGoal(el, val) {
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) { if (!S.goals.includes(val)) S.goals.push(val); }
+  else S.goals = S.goals.filter(g => g !== val);
+}
+function finishOnboard() {
+  S.apiUrl    = document.getElementById('ob-api-url').value.trim() || 'http://localhost:8000';
+  S.geminiKey = document.getElementById('ob-api-key').value.trim();
+  S.profile   = {
+    user_id:           'u_' + Date.now(),
+    name:              document.getElementById('ob-name').value.trim() || 'Athlete',
+    age:               parseInt(document.getElementById('ob-age').value) || 25,
+    weight_kg:         parseFloat(document.getElementById('ob-weight').value) || 75,
+    height_cm:         parseFloat(document.getElementById('ob-height').value) || 175,
+    sex:               document.getElementById('ob-sex').value,
+    experience_level:  document.getElementById('ob-exp').value,
+    goals:             S.goals.length ? S.goals : ['general_health'],
+    injuries:          document.getElementById('ob-injuries').value.split(',').map(s=>s.trim()).filter(Boolean),
+    dietary_restrictions: document.getElementById('ob-diet').value.split(',').map(s=>s.trim()).filter(Boolean),
+  };
+  localStorage.setItem('fc_state', JSON.stringify({ apiUrl: S.apiUrl, geminiKey: S.geminiKey, profile: S.profile }));
+  launchApp();
+}
+function launchApp() {
+  document.getElementById('onboard').style.display = 'none';
+  document.getElementById('mainApp').style.display = 'grid';
+  applyProfile();
+  refreshDashboard();
+  const hr = new Date().getHours();
+  document.getElementById('greeting').textContent = hr < 12 ? 'MORNING' : hr < 17 ? 'AFTERNOON' : 'EVENING';
+}
+function applyProfile() {
+  const n = S.profile.name || 'Athlete';
+  document.getElementById('dashName').textContent = n.toUpperCase();
+  document.getElementById('userAvatar').textContent = n[0].toUpperCase();
+  const el = document.getElementById('profileSummary');
+  if (el) el.innerHTML = Object.entries(S.profile).filter(([k]) => k !== 'user_id')
+    .map(([k,v]) => `<div><span style="color:var(--text3)">${k}:</span> ${Array.isArray(v) ? v.join(', ') || '—' : v}</div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function refreshDashboard() {
+  // Form score
+  const latest = S.formAnalyses[S.formAnalyses.length - 1];
+  if (latest) {
+    document.getElementById('dashFormScore').textContent = latest.score;
+    document.getElementById('dashFormEx').textContent = latest.exercise;
+    document.getElementById('dashFormBar').style.width = latest.score + '%';
+    if (!latest.safe_to_continue) {
+      S.flags.medical = true;
+      document.getElementById('alertMedical').style.display = 'flex';
+      document.getElementById('formBadge').style.display = 'inline';
+    }
+  }
+  // Calories
+  const totalCals = S.foodLog.reduce((s,e) => s + e.calories, 0);
+  document.getElementById('dashCals').textContent = totalCals;
+  if (S.macros) {
+    document.getElementById('dashCalsTarget').textContent = `of ${S.macros.calories} target`;
+    document.getElementById('dashCalsBar').style.width = Math.min(100, totalCals / S.macros.calories * 100) + '%';
+  }
+  // Sessions
+  document.getElementById('dashSessions').textContent = S.sessions;
+  // Mood
+  if (S.mood !== null) {
+    document.getElementById('dashMood').textContent = `${S.mood} / ${S.energy}`;
+    if (S.mood <= 4 || S.energy <= 4) {
+      document.getElementById('alertMood').style.display = 'flex';
+    }
+  }
+  // Flags
+  const flagsEl = document.getElementById('flagsList');
+  const activeFlags = Object.entries(S.flags).filter(([,v]) => v);
+  if (activeFlags.length) {
+    flagsEl.innerHTML = activeFlags.map(([k]) => `
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--red-dim);border:1px solid rgba(255,77,77,.2);border-radius:var(--r2)">
+        <span style="color:var(--red);font-size:12px;font-family:var(--mono)">${k.toUpperCase()}</span>
+      </div>`).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// MOOD CHECK-IN
+// ═══════════════════════════════════════════════════════════
+async function submitCheckin() {
+  const mood = parseInt(document.getElementById('moodInput').value);
+  const energy = parseInt(document.getElementById('energyInput').value);
+  if (!mood || !energy) return alert('Please enter mood and energy scores.');
+  S.mood = mood; S.energy = energy;
+  setLoading('checkinSpin', true);
+  try {
+    await agentRun(`Log my daily check-in: mood=${mood}/10, energy=${energy}/10. Notes: ${document.getElementById('moodNotes').value || 'none'}`);
+  } catch(e) {}
+  setLoading('checkinSpin', false);
+  refreshDashboard();
+  addChatMsg('agent', `Check-in logged! Mood: ${mood}/10, Energy: ${energy}/10. ${mood <= 5 || energy <= 5 ? 'I\'ve flagged your agents to reduce training load today.' : 'You\'re good to go — have a great session.'}`);
+}
+
+// ═══════════════════════════════════════════════════════════
+// FORM COACH
+// ═══════════════════════════════════════════════════════════
+document.getElementById('exerciseSelect').addEventListener('change', function() {
+  document.getElementById('customExField').style.display = this.value === 'other' ? 'block' : 'none';
+});
+
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); handleMedia(e.dataTransfer.files[0]); });
+
+let currentMediaFile = null;
+function handleMedia(file) {
+  if (!file) return;
+  currentMediaFile = file;
+  const url = URL.createObjectURL(file);
+  const isVid = file.type.startsWith('video/');
+  const previewEl = document.getElementById('mediaPreview');
+  previewEl.innerHTML = isVid
+    ? `<video src="${url}" controls muted style="width:100%;border-radius:8px;max-height:280px;background:#000"></video>`
+    : `<img src="${url}" style="width:100%;border-radius:8px;max-height:280px;object-fit:cover">`;
+  previewEl.style.display = 'block';
+  document.getElementById('uploadIcon').style.display = 'none';
+  document.getElementById('uploadHint').style.display = 'none';
+  uploadZone.classList.add('has-media');
+}
+
+function toggleFocus(el) {
+  const isActive = el.classList.contains('chip-lime');
+  el.className = 'chip ' + (isActive ? 'chip-gray' : 'chip-lime');
+}
+
+function getFocusAreas() {
+  return [...document.querySelectorAll('#focusChips .chip-lime')].map(c => c.textContent.trim());
+}
+
+async function runFormAnalysis() {
+  const exercise = document.getElementById('exerciseSelect').value === 'other'
+    ? document.getElementById('customEx').value
+    : document.getElementById('exerciseSelect').value;
+  if (!currentMediaFile) return alert('Please upload a photo or video first.');
+  if (!exercise) return alert('Please select an exercise.');
+  if (!S.geminiKey) return alert('Please enter your Gemini API key in Settings or onboarding.');
+
+  setLoading('analysisSpin', true);
+  document.getElementById('analysisLabel').textContent = 'Analyzing…';
+  document.getElementById('formEmpty').style.display = 'none';
+  document.getElementById('formResults').style.display = 'none';
+
+  try {
+    const b64 = await fileToB64(currentMediaFile);
+    const mime = currentMediaFile.type.startsWith('video/') ? 'image/jpeg' : currentMediaFile.type;
+    const finalB64 = currentMediaFile.type.startsWith('video/') ? await videoFrame(currentMediaFile) : b64;
+
+    const prompt = buildFormPrompt(exercise, S.profile.experience_level || 'intermediate', getFocusAreas(), S.profile.injuries || []);
+    const result = await callGeminiVision(finalB64, mime, prompt);
+
+    S.formAnalyses.push({ ...result, exercise });
+    renderFormResults(result, exercise);
+    refreshDashboard();
+  } catch(err) {
+    alert('Analysis error: ' + err.message);
+  }
+  setLoading('analysisSpin', false);
+  document.getElementById('analysisLabel').textContent = 'Analyze form';
+}
+
+function buildFormPrompt(exercise, level, focus, injuries) {
+  const injLine = injuries.length ? `\nKnown injury history: ${injuries.join(', ')}. Flag any movement that could aggravate these.` : '';
+  const focusStr = focus.length ? focus.join(', ') : 'overall form and safety';
+  return `You are an expert strength and conditioning coach with deep biomechanical knowledge.
+Analyze the athlete's form in this image for: ${exercise}.
+Experience level: ${level}.${injLine}
+Focus on: ${focusStr}.
+Respond ONLY with valid JSON (no markdown):
+{"score":<0-100>,"label":"Excellent form|Good form|Needs improvement|Poor form|Cannot assess","summary":"<1-2 sentences>","safe_to_continue":<bool>,"issues":[{"title":"<str>","description":"<str>","severity":"minor|moderate|major","cue":"<actionable fix>"}],"cues":["<str>"],"visibility_notes":"<str or null>"}
+Return 3-5 cues total. Empty issues array if no issues.`;
+}
+
+async function callGeminiVision(b64, mime, prompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${S.geminiKey}`;
+  const body = { contents:[{parts:[{inline_data:{mime_type:mime,data:b64}},{text:prompt}]}],
+    generationConfig:{temperature:0.2,maxOutputTokens:1024,responseMimeType:"application/json"},
+    safetySettings:[{category:"HARM_CATEGORY_HARASSMENT",threshold:"BLOCK_NONE"}] };
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'Gemini error'); }
+  const d = await r.json();
+  const txt = d.candidates[0].content.parts[0].text;
+  return JSON.parse(txt.replace(/```json|```/g,'').trim());
+}
+
+function renderFormResults(data, exercise) {
+  const results = document.getElementById('formResults');
+  results.style.display = 'flex';
+
+  // Score ring
+  const score = Math.max(0, Math.min(100, data.score || 0));
+  const circ = 283;
+  document.getElementById('formScoreNum').textContent = score;
+  document.getElementById('formScoreLabel').textContent = data.label || '—';
+  document.getElementById('formScoreSummary').textContent = data.summary || '';
+  const arc = document.getElementById('formScoreArc');
+  const col = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--orange)' : 'var(--red)';
+  arc.style.stroke = col;
+  setTimeout(() => arc.style.strokeDashoffset = circ - (score / 100) * circ, 100);
+
+  // Safety chip
+  const safe = data.safe_to_continue !== false;
+  document.getElementById('safetyChip').innerHTML = safe
+    ? '<span class="chip chip-green">✓ Safe to continue</span>'
+    : '<span class="chip chip-red">⚠ Pause training — address issues</span>';
+
+  // Issues
+  const issues = data.issues || [];
+  if (issues.length) {
+    document.getElementById('formIssuesCard').style.display = 'block';
+    document.getElementById('issueCountLabel').textContent = `${issues.length} found`;
+    document.getElementById('formIssuesList').innerHTML = issues.map((iss, i) => `
+      <div class="issue-item" style="animation-delay:${i*0.07}s">
+        <div class="issue-sev-bar sev-${iss.severity}"></div>
+        <div class="issue-body">
+          <div class="issue-title">${iss.title}</div>
+          <div class="issue-desc">${iss.description}</div>
+          ${iss.cue ? `<div class="issue-cue">→ ${iss.cue}</div>` : ''}
+        </div>
+        <span class="chip chip-${iss.severity==='major'?'red':iss.severity==='moderate'?'orange':'green'}" style="margin-top:2px;align-self:flex-start">${iss.severity}</span>
+      </div>`).join('');
+  }
+
+  // Cues
+  const cues = data.cues || [];
+  if (cues.length) {
+    document.getElementById('formCuesCard').style.display = 'block';
+    document.getElementById('formCuesList').innerHTML = cues.map((c,i) => `
+      <li style="display:flex;gap:10px;font-size:14px;line-height:1.6;animation:fadeUp .3s ease ${i*0.06}s forwards;opacity:0">
+        <span style="color:var(--lime);font-family:var(--mono);flex-shrink:0">→</span>${c}
+      </li>`).join('');
+  }
+
+  // Visibility notes
+  if (data.visibility_notes) {
+    const vn = document.getElementById('formVisNotes');
+    vn.style.display = 'block';
+    vn.textContent = '⚠ ' + data.visibility_notes;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// NUTRITION
+// ═══════════════════════════════════════════════════════════
+function switchNutTab(el, tab) {
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['macros','log','meals'].forEach(t => {
+    const el = document.getElementById('nutTab-' + t);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+  });
+}
+
+async function calcMacros() {
+  setLoading('macroSpin', true);
+  try {
+    const p = S.profile;
+    const msg = `Calculate my macro targets. Profile: weight ${p.weight_kg}kg, height ${p.height_cm}cm, age ${p.age}, sex ${p.sex}, goal ${(p.goals||['general_health'])[0]}, experience ${p.experience_level}.`;
+    const resp = await agentRun(msg);
+    // Compute locally for instant display (mirrors macros.py logic)
+    const sex = p.sex === 'male' ? 1 : 0;
+    const bmr = 10*p.weight_kg + 6.25*p.height_cm - 5*p.age + (sex ? 5 : -161);
+    const tdee = bmr * 1.55;
+    const goalAdj = {strength:200,hypertrophy:300,muscle_gain:300,fat_loss:-500,endurance:150,general_health:0};
+    const goal = (p.goals||['general_health'])[0];
+    const cals = Math.round(tdee + (goalAdj[goal]||0));
+    const protein = Math.round(p.weight_kg * (goal==='strength'||goal==='hypertrophy'?2.2:1.8));
+    const fat = Math.round(cals*0.25/9);
+    const carbs = Math.round(Math.max(50, (cals - protein*4 - fat*9)/4));
+    S.macros = { calories: cals, protein_g: protein, carbs_g: carbs, fat_g: fat };
+    renderMacros(S.macros, tdee, goal);
+  } catch(e) { console.error(e); }
+  setLoading('macroSpin', false);
+}
+
+function renderMacros(m, tdee, goal) {
+  document.getElementById('macrosEmpty').style.display = 'none';
+  document.getElementById('macrosResults').style.display = 'block';
+  const ringDefs = [
+    { label:'Calories', value: m.calories, unit:'kcal', color:'var(--orange)', max:3500 },
+    { label:'Protein', value: m.protein_g, unit:'g', color:'var(--blue)', max:250 },
+    { label:'Carbs', value: m.carbs_g, unit:'g', color:'var(--lime)', max:400 },
+    { label:'Fat', value: m.fat_g, unit:'g', color:'var(--green)', max:150 },
+  ];
+  document.getElementById('macroRings').innerHTML = ringDefs.map(r => {
+    const pct = Math.min(100, r.value / r.max * 100);
+    const offset = 200 - (pct / 100) * 200;
+    return `<div class="macro-ring-item">
+      <div class="mini-ring">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle class="mt" cx="36" cy="36" r="32"/>
+          <circle class="mf" cx="36" cy="36" r="32" stroke="${r.color}" style="stroke-dashoffset:${offset}"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column">
+          <span style="font-family:var(--display);font-size:18px;color:${r.color}">${r.value}</span>
+          <span style="font-size:9px;color:var(--text3);font-family:var(--mono)">${r.unit}</span>
+        </div>
+      </div>
+      <div class="ring-label">${r.label}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('macroNotes').innerHTML = [
+    `BMR → Mifflin-St Jeor`,
+    `TDEE → ${Math.round(tdee)} kcal (moderate activity)`,
+    `Goal adjustment → ${goal.replace('_',' ')}`,
+    `Protein → ${(m.protein_g/S.profile.weight_kg).toFixed(1)}g/kg bodyweight`,
+  ].map(l => `<div>▸ ${l}</div>`).join('');
+}
+
+function logFood() {
+  const name = document.getElementById('foodName').value.trim();
+  const cals = parseFloat(document.getElementById('foodCals').value) || 0;
+  const protein = parseFloat(document.getElementById('foodProtein').value) || 0;
+  const carbs = parseFloat(document.getElementById('foodCarbs').value) || 0;
+  const fat = parseFloat(document.getElementById('foodFat').value) || 0;
+  const meal = document.getElementById('foodMeal').value;
+  if (!name) return alert('Please enter a food name.');
+  const entry = { name, calories: cals, protein_g: protein, carbs_g: carbs, fat_g: fat, meal_type: meal, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) };
+  S.foodLog.push(entry);
+  renderFoodLog();
+  ['foodName','foodCals','foodProtein','foodCarbs','foodFat'].forEach(id => document.getElementById(id).value = '');
+}
+
+function renderFoodLog() {
+  const totals = S.foodLog.reduce((acc, e) => ({
+    calories: acc.calories + e.calories, protein_g: acc.protein_g + e.protein_g,
+    carbs_g: acc.carbs_g + e.carbs_g, fat_g: acc.fat_g + e.fat_g
+  }), {calories:0,protein_g:0,carbs_g:0,fat_g:0});
+
+  const target = S.macros || {};
+  document.getElementById('foodTotals').innerHTML = [
+    ['Calories', totals.calories, target.calories, 'var(--orange)'],
+    ['Protein', totals.protein_g.toFixed(1)+'g', target.protein_g ? target.protein_g+'g' : null, 'var(--blue)'],
+    ['Carbs', totals.carbs_g.toFixed(1)+'g', target.carbs_g ? target.carbs_g+'g' : null, 'var(--lime)'],
+    ['Fat', totals.fat_g.toFixed(1)+'g', target.fat_g ? target.fat_g+'g' : null, 'var(--green)'],
+  ].map(([l,v,t,c]) => `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;color:var(--text2)">${l}</span>
+      <span style="font-family:var(--mono);font-size:13px;color:${c}">${v}${t ? ` <span style="color:var(--text3)">/ ${t}</span>` : ''}</span>
+    </div>`).join('');
+
+  document.getElementById('foodLog').innerHTML = S.foodLog.length
+    ? S.foodLog.slice().reverse().map(e => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:var(--r2);border:1px solid var(--border)">
+        <div>
+          <div style="font-size:14px;font-weight:500">${e.name}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${e.meal_type} · ${e.time}</div>
+        </div>
+        <div style="text-align:right;font-family:var(--mono);font-size:12px;color:var(--text2)">
+          ${e.calories} kcal &nbsp; ${e.protein_g}g P
+        </div>
+      </div>`).join('')
+    : '<div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Nothing logged yet.</div>';
+  refreshDashboard();
+}
+
+async function getMealSuggestions() {
+  const type = document.getElementById('mealTypeSelect').value;
+  const budget = document.getElementById('mealBudget').value;
+  setLoading('mealSpin', true);
+  const area = document.getElementById('mealSuggestionsArea');
+  area.innerHTML = '<div style="color:var(--text2);font-size:13px">Consulting nutrition agent…</div>';
+  try {
+    const msg = `Give me 3 ${type} meal suggestions${budget ? ` under ${budget} calories` : ''}. My dietary restrictions: ${(S.profile.dietary_restrictions||[]).join(', ') || 'none'}. Goal: ${(S.profile.goals||['general_health'])[0]}.`;
+    const resp = await agentRun(msg);
+    area.innerHTML = `<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.8;color:var(--text2)">${resp}</div>`;
+  } catch(e) {
+    area.innerHTML = '<div style="color:var(--red);font-size:13px">Error reaching agent. Check your API URL in settings.</div>';
+  }
+  setLoading('mealSpin', false);
+}
+
+// ═══════════════════════════════════════════════════════════
+// WORKOUT PLANNER
+// ═══════════════════════════════════════════════════════════
+const SPLITS = {
+  PPL: {
+    Push:  {type:'training', exercises:['Barbell bench press','Overhead press','Incline dumbbell press','Tricep pushdown','Lateral raises']},
+    Pull:  {type:'training', exercises:['Barbell row','Lat pulldown','Cable row','Dumbbell curl','Face pulls']},
+    Legs:  {type:'training', exercises:['Barbell back squat','Romanian deadlift','Leg press','Leg curl','Calf raises']},
+    Rest:  {type:'rest', exercises:[]},
+  },
+  Upper_Lower: {
+    Upper: {type:'training', exercises:['Bench press','Barbell row','Overhead press','Chin-up','Lateral raises']},
+    Lower: {type:'training', exercises:['Squat','Romanian deadlift','Leg press','Leg curl','Plank']},
+    Rest:  {type:'rest', exercises:[]},
+  },
+  Full_Body: {
+    'Full Body': {type:'training', exercises:['Squat','Bench press','Barbell row','Overhead press','Pull-up','Romanian deadlift']},
+    Rest:        {type:'rest', exercises:[]},
+  },
+};
+
+function generatePlan() {
+  const days = parseInt(document.getElementById('planDays').value);
+  const split = document.getElementById('planSplit').value;
+  document.getElementById('planLabel').textContent = 'Generating…';
+
+  const sessions = Object.entries(SPLITS[split]).filter(([k]) => k !== 'Rest').map(([k,v]) => [k,v]);
+  const weekdays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const trainingDays = [];
+  const step = Math.floor(7 / days);
+  for (let i = 0; i < days; i++) trainingDays.push(i * step);
+
+  const plan = weekdays.map((day, idx) => {
+    const isTraining = trainingDays.includes(idx);
+    if (isTraining) {
+      const sessionIdx = trainingDays.indexOf(idx) % sessions.length;
+      const [name, session] = sessions[sessionIdx];
+      return { day, type: 'training', name, exercises: session.exercises };
+    }
+    return { day, type: 'rest', name: 'Rest', exercises: [] };
+  });
+
+  document.getElementById('planEmpty').style.display = 'none';
+  document.getElementById('planCard').style.display = 'block';
+  document.getElementById('planSplitLabel').textContent = `${split.replace('_',' ')} · ${days}x/week`;
+  document.getElementById('planGrid').innerHTML = plan.map(d => `
+    <div class="plan-day ${d.type}">
+      <div class="day-name">${d.day.slice(0,3)}</div>
+      <div class="day-type">${d.name}</div>
+      <div class="day-exercises">${d.exercises.slice(0,3).join('\n') || '— Recovery'}</div>
+    </div>`).join('');
+
+  document.getElementById('planLabel').textContent = 'Regenerate plan';
+  S.sessions = 0;
+  refreshDashboard();
+}
+
+function logSession() {
+  const name = document.getElementById('sessionName').value.trim() || 'Session';
+  const rpe = parseFloat(document.getElementById('sessionRPE').value) || 7;
+  S.sessions++;
+  refreshDashboard();
+  const prog = rpe <= 6.5 ? 'Add 2.5-5kg load next session.' : rpe >= 9 ? 'Prioritise recovery — hold load next session.' : 'Solid session. Small increment or extra set next week.';
+  addChatMsg('agent', `Session "${name}" logged (RPE ${rpe}/10). Progression: ${prog}`);
+  document.getElementById('sessionName').value = '';
+  document.getElementById('sessionRPE').value = '';
+  showView('chat');
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHAT / ORCHESTRATOR
+// ═══════════════════════════════════════════════════════════
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addChatMsg('user', msg);
+  document.getElementById('typingIndicator').style.display = 'flex';
+  scrollChat();
+  try {
+    const reply = await agentRun(msg);
+    document.getElementById('typingIndicator').style.display = 'none';
+    addChatMsg('agent', reply);
+  } catch(e) {
+    document.getElementById('typingIndicator').style.display = 'none';
+    addChatMsg('agent', `I couldn't reach the orchestrator (${e.message}). Check your API URL in settings.`);
+  }
+}
+
+function addChatMsg(role, text) {
+  const history = document.getElementById('chatHistory');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `
+    <div class="msg-avatar ${role}">${role === 'user' ? (S.profile.name||'U')[0].toUpperCase() : 'FC'}</div>
+    <div class="msg-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+  history.appendChild(div);
+  scrollChat();
+}
+
+function scrollChat() {
+  const h = document.getElementById('chatHistory');
+  h.scrollTop = h.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════
+function loadSettings() {
+  document.getElementById('settingsApiUrl').value = S.apiUrl;
+  document.getElementById('settingsApiKey').value = S.geminiKey;
+  applyProfile();
+}
+function saveSettings() {
+  S.apiUrl    = document.getElementById('settingsApiUrl').value.trim() || S.apiUrl;
+  S.geminiKey = document.getElementById('settingsApiKey').value.trim() || S.geminiKey;
+  localStorage.setItem('fc_state', JSON.stringify({ apiUrl: S.apiUrl, geminiKey: S.geminiKey, profile: S.profile }));
+  alert('Settings saved.');
+}
+function resetAll() {
+  if (!confirm('Reset everything and re-onboard?')) return;
+  localStorage.removeItem('fc_state');
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADK AGENT API
+// ═══════════════════════════════════════════════════════════
+async function agentRun(message) {
+  // POST to the ADK /run endpoint
+  const resp = await fetch(`${S.apiUrl}/run`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      app_name: 'formcoach_fitness_system',
+      user_id:  S.profile.user_id || 'default',
+      session_id: S.sessionId,
+      new_message: { role: 'user', parts: [{ text: message }] }
+    })
+  });
+  if (!resp.ok) throw new Error(`Agent error ${resp.status}`);
+  const data = await resp.json();
+  // Extract text from ADK response format
+  const parts = data?.candidates?.[0]?.content?.parts
+    || data?.content?.parts
+    || data?.parts
+    || [];
+  return parts.map(p => p.text || '').join('').trim()
+    || data?.text
+    || JSON.stringify(data).slice(0, 300);
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
+function setLoading(spinId, on) {
+  const el = document.getElementById(spinId);
+  if (el) el.style.display = on ? 'block' : 'none';
+}
+
+function fileToB64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+async function videoFrame(file) {
+  return new Promise((res, rej) => {
+    const video = document.createElement('video');
+    const canvas = document.createElement('canvas');
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.onloadeddata = () => { video.currentTime = video.duration * 0.25; };
+    video.onseeked = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      res(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    video.onerror = rej;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+(function init() {
+  const saved = localStorage.getItem('fc_state');
+  if (saved) {
+    try {
+      const d = JSON.parse(saved);
+      Object.assign(S, d);
+      launchApp();
+    } catch(e) { /* show onboarding */ }
+  }
+})();
+</script>
+</body>
+</html>
