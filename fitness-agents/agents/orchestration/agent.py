@@ -257,6 +257,6 @@ Be direct about concerns but always solution-focused.
 # ── ADK App (entry point) ──────────────────────────────────────────────────────
 
 app = App(
-    name="formcoach_fitness_system",
+    name="orchestration",
     root_agent=orchestrator_agent,
 )

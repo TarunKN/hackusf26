@@ -15,9 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from google.adk.cli.fast_api import get_fast_api_app
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fitness-agents"))
 
 from shared.config import API_HOST, API_PORT, USE_CLOUD_LOGGING, LOG_LEVEL
-from agents.orchestrator.agent import app as adk_app
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 
@@ -32,9 +32,11 @@ if USE_CLOUD_LOGGING:
 
 # get_fast_api_app wraps the ADK App and mounts /run, /stream, /sessions endpoints
 api = get_fast_api_app(
-    agent_dir=str(Path(__file__).parent.parent / "agents" / "orchestrator"),
+    agents_dir=str(Path(__file__).parent.parent / "fitness-agents" / "agents"),
     session_service_uri=os.getenv("SESSION_SERVICE_URI", None),  # None = in-memory
     allow_origins=["*"],  # Tighten this in production
+    web=False,
+    auto_create_session=True,
 )
 
 # ── Image upload endpoint ──────────────────────────────────────────────────────
@@ -57,7 +59,7 @@ async def upload_form_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=415, detail=f"Unsupported media type: {file.content_type}")
 
     suffix = Path(file.filename).suffix or ".jpg"
-    tmp = tempfile.NamedTemporaryFile(delete=False, dir=UPLOAD_DIR, suffix=suffix)
+    tmp = tempfile.NamedTemporaryFile(delete=False, dir=UPLOAD_DIR, suffix=suffix, mode='wb')
     try:
         contents = await file.read()
         tmp.write(contents)

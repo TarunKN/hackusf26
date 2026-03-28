@@ -25,3 +25,9 @@ API_PORT              = int(os.getenv("API_PORT", "8000"))
 # ── Logging ───────────────────────────────────────────────────────────────────
 USE_CLOUD_LOGGING     = os.getenv("USE_CLOUD_LOGGING", "false").lower() == "true"
 LOG_LEVEL             = os.getenv("LOG_LEVEL", "INFO")
+
+RETRY_OPTIONS = {
+    "initial_delay": RETRY_INITIAL_DELAY,
+    "max_delay": RETRY_MAX_DELAY,
+    "attempts": RETRY_ATTEMPTS,
+}
