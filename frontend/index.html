@@ -2436,7 +2436,7 @@
               </div>
               <div id="ttsStatus" style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:auto"></div>
               <button class="btn btn-ghost btn-sm" onclick="testTTSVoice()" style="padding:4px 10px;font-size:11px" title="Test the selected voice">▶ Test</button>
-              <button id="ttsStopBtn" class="btn btn-ghost btn-sm" onclick="stopTTS()" style="display:none;padding:4px 10px;font-size:11px">■ Stop</button>
+              <button id="ttsStopBtn" class="btn btn-ghost btn-sm" onclick="stopTTS()" style="display:none;padding:4px 10px;font-size:11px">⏸ Pause</button>
             </div>
 
             <div class="chat-history" id="chatHistory">
@@ -3798,10 +3798,6 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
 
         // Switch to chat view
         showView("chat");
-        document.querySelectorAll(".nav-item").forEach((n) => {
-          if (n.textContent.trim().includes("Coach") && n.textContent.trim().includes("Ask")) n.classList.add("active");
-          else n.classList.remove("active");
-        });
       }
 
       function addLocalOrchestratorResponse(verdict, exercise, safe, cues) {
@@ -3897,6 +3893,23 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
             }
           } catch (e) {}
         }
+        const stopBtn = document.getElementById("ttsStopBtn");
+        if (on) {
+          stopBtn.style.display = "inline-flex";
+          stopBtn.textContent = "⏸ Pause";
+        } else {
+          // If TTS is turned off while speaking, stop audio
+          if (TTS.audio) {
+            TTS.audio.pause();
+            TTS.audio.currentTime = 0;
+            TTS.audio = null;
+          }
+          if (TTS.objectUrl) {
+            URL.revokeObjectURL(TTS.objectUrl);
+            TTS.objectUrl = null;
+          }
+          stopBtn.style.display = "none";
+        }
         setTTSStatus(on ? "ready" : "");
       }
 
@@ -3932,8 +3945,14 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
           URL.revokeObjectURL(TTS.objectUrl);
           TTS.objectUrl = null;
         }
-        document.getElementById("ttsStopBtn").style.display = "none";
-        setTTSStatus("stopped");
+        const stopBtn = document.getElementById("ttsStopBtn");
+        if (TTS.enabled) {
+          stopBtn.style.display = "inline-flex";
+          stopBtn.textContent = "⏸ Pause";
+        } else {
+          stopBtn.style.display = "none";
+        }
+        setTTSStatus(TTS.enabled ? "ready" : "");
       }
 
       /**
@@ -4015,7 +4034,9 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
         stopTTS();
 
         setTTSStatus("▶ speaking…");
-        document.getElementById("ttsStopBtn").style.display = "inline-flex";
+        const stopBtn = document.getElementById("ttsStopBtn");
+        stopBtn.style.display = "inline-flex";
+        stopBtn.textContent = "■ Stop";
 
         try {
           const resp = await fetch(
@@ -4044,7 +4065,13 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
             const err = await resp.json().catch(() => ({}));
             const msg = err?.detail?.message || err?.detail || `ElevenLabs error ${resp.status}`;
             setTTSStatus("⚠ " + msg);
-            document.getElementById("ttsStopBtn").style.display = "none";
+            if (TTS.enabled) {
+              const sb = document.getElementById("ttsStopBtn");
+              sb.style.display = "inline-flex";
+              sb.textContent = "⏸ Pause";
+            } else {
+              document.getElementById("ttsStopBtn").style.display = "none";
+            }
             return;
           }
 
@@ -4053,19 +4080,28 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
           TTS.audio = new Audio(TTS.objectUrl);
           TTS.audio.onended = () => {
             setTTSStatus("ready");
-            document.getElementById("ttsStopBtn").style.display = "none";
+            const stopBtn = document.getElementById("ttsStopBtn");
+            stopBtn.textContent = "⏸ Pause";
+            // Keep button visible since TTS is still enabled
             URL.revokeObjectURL(TTS.objectUrl);
             TTS.objectUrl = null;
             TTS.audio = null;
           };
           TTS.audio.onerror = () => {
             setTTSStatus("⚠ playback error");
-            document.getElementById("ttsStopBtn").style.display = "none";
+            const stopBtn = document.getElementById("ttsStopBtn");
+            stopBtn.textContent = "⏸ Pause";
           };
           await TTS.audio.play();
         } catch (e) {
           setTTSStatus("⚠ " + e.message);
-          document.getElementById("ttsStopBtn").style.display = "none";
+          if (TTS.enabled) {
+            const sb = document.getElementById("ttsStopBtn");
+            sb.style.display = "inline-flex";
+            sb.textContent = "⏸ Pause";
+          } else {
+            document.getElementById("ttsStopBtn").style.display = "none";
+          }
         }
       }
 
