@@ -39,12 +39,17 @@ def log_model_response(callback_context, llm_response):
 
 # ── Retry options ─────────────────────────────────────────────────────────────
 
-def build_retry_options() -> types.HttpRetryOptions:
-    return types.HttpRetryOptions(
-        initial_delay=RETRY_INITIAL_DELAY,
-        max_delay=RETRY_MAX_DELAY,
-        attempts=RETRY_ATTEMPTS,
-    )
+def build_retry_options():
+    """
+    Build retry options compatible with the installed ADK version.
+    ADK agents accept retry_options as a plain dict or HttpRetryOptions.
+    We return a dict so it works regardless of ADK version.
+    """
+    return {
+        "initial_delay": RETRY_INITIAL_DELAY,
+        "max_delay": RETRY_MAX_DELAY,
+        "attempts": RETRY_ATTEMPTS,
+    }
 
 
 RETRY_OPTIONS = build_retry_options()

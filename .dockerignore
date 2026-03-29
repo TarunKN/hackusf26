@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+.DS_Store
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Test / dev artifacts
+*.log
+*.tmp
+test_out.json
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets (never bake into image)
+.env
+*.env
+
+# Node (if any)
+node_modules/
+
+# Large media uploads (runtime only)
+/tmp/

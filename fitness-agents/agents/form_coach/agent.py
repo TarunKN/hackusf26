@@ -7,6 +7,7 @@ saves results to session state, and flags injury risks to the orchestrator.
 import os
 import asyncio
 import logging
+import threading
 from typing import Optional
 
 from google.adk import Agent
@@ -61,10 +62,38 @@ def analyze_exercise_form(
                      "depth and range of motion", "shoulder position"]
     areas = focus_areas or default_focus
 
-    # Run async vision call in sync context (ADK tools are sync by default)
-    result = asyncio.get_event_loop().run_until_complete(
-        analyze_form(image_path, exercise, experience, areas, injuries)
-    )
+    # Run async vision call in sync context (ADK tools are sync by default).
+    # Use a dedicated thread with its own event loop to avoid "loop already running"
+    # errors when ADK itself runs an async event loop.
+    def _run_in_thread():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(
+                analyze_form(image_path, exercise, experience, areas, injuries)
+            )
+        finally:
+            loop.close()
+
+    container = {}
+    exc_container = {}
+
+    def _thread_target():
+        try:
+            container["result"] = _run_in_thread()
+        except Exception as e:
+            exc_container["error"] = e
+
+    t = threading.Thread(target=_thread_target)
+    t.start()
+    t.join(timeout=60)
+
+    if "error" in exc_container:
+        raise exc_container["error"]
+    if "result" not in container:
+        raise TimeoutError("Form analysis timed out after 60 seconds.")
+
+    result = container["result"]
 
     # Persist result to session state
     existing = tool_context.state.get("recent_form_analyses", [])

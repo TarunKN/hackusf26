@@ -16,10 +16,12 @@ from shared.schemas import FormAnalysisResult, FormIssue
 
 logger = logging.getLogger(__name__)
 
-GEMINI_VISION_URL = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/"
-    f"{GEMINI_VISION_MODEL}:generateContent?key={GEMINI_API_KEY}"
-)
+def _vision_url() -> str:
+    """Build the Gemini Vision URL dynamically so env changes are picked up."""
+    return (
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_VISION_MODEL}:generateContent?key={GEMINI_API_KEY}"
+    )
 
 
 # ── Prompt construction ────────────────────────────────────────────────────────
@@ -44,33 +46,53 @@ def build_form_analysis_prompt(
 
     return f"""You are an expert strength and conditioning coach with deep knowledge of biomechanics and injury prevention.
 
-Analyze the athlete's form in this image for the following exercise: {exercise}.
+Analyze the athlete's form in this image for the following exercise: **{exercise}**.
 Athlete experience level: {experience_level}.{injury_line}
 
 Focus specifically on: {focus_str}.
 
-Evaluate what you can observe. If certain angles are not visible, note that limitation honestly.
+## Scoring guidelines (be consistent and calibrated)
 
-Respond ONLY with a valid JSON object — no markdown, no text outside the JSON. Use this exact schema:
+Use the 0-100 scale as follows:
+- 90-100: Excellent — textbook form, competition-ready
+- 75-89: Good — solid, safe to progress with minor tweaks
+- 55-74: Needs improvement — clear correctable faults, safe to train but address issues
+- 35-54: Poor — multiple significant faults, reduce load and fix form
+- 0-34: Dangerous — high injury risk, stop loading this movement
+
+**Calibration rules (apply strictly):**
+- A typical gym-goer with acceptable but imperfect form scores 60-75.
+- Only score above 85 if the form is genuinely excellent.
+- Only score below 40 if there are multiple major faults or acute injury risk.
+- If you cannot see key joints, note it in visibility_notes and score conservatively.
+- Be consistent: the same form should score within ±5 points across analyses.
+
+## Output format
+
+Respond ONLY with a valid JSON object — no markdown, no text outside the JSON:
 
 {{
-  "score": <integer 0-100, overall form quality>,
-  "label": <one of: "Excellent form" | "Good form" | "Needs improvement" | "Poor form" | "Cannot assess">,
-  "summary": <string, 1-2 sentence overall assessment>,
-  "safe_to_continue": <boolean>,
+  "score": <integer 0-100>,
+  "label": <"Excellent form" | "Good form" | "Needs improvement" | "Poor form" | "Cannot assess">,
+  "summary": <string, 2-3 sentence overall assessment including what is done well>,
+  "safe_to_continue": <boolean — false only if score < 40 or acute injury risk visible>,
   "issues": [
     {{
       "title": <string, brief issue name>,
-      "description": <string, what you observe and why it matters biomechanically>,
+      "description": <string, what you observe and WHY it matters biomechanically>,
       "severity": <"minor" | "moderate" | "major">,
-      "cue": <string, one actionable coaching cue to correct this issue>
+      "cue": <string, one specific, immediately actionable coaching cue>
     }}
   ],
-  "cues": [<string>, ...],
-  "visibility_notes": <string or null, what could not be assessed from this angle>
+  "cues": [<string, 3-5 positive coaching cues the athlete can apply right now>],
+  "visibility_notes": <string or null — note any joints/angles not visible>
 }}
 
-Return 3-5 coaching cues total. If no form issues found, return an empty issues array."""
+Rules:
+- Return 0-5 issues. If form is good, return fewer issues, not zero just to seem thorough.
+- Return exactly 3-5 coaching cues even if form is excellent (reinforce good habits).
+- safe_to_continue = false ONLY when score < 40 or there is a clearly visible acute injury risk.
+- If the image is too blurry or the athlete is out of frame, set label to "Cannot assess" and explain in visibility_notes."""
 
 
 # ── Image encoding ─────────────────────────────────────────────────────────────
@@ -115,22 +137,34 @@ async def call_gemini_vision(
             }
         ],
         "generationConfig": {
-            "temperature": 0.2,         # Low temperature = consistent structured output
-            "maxOutputTokens": 1024,
+            "temperature": 0.1,          # Very low = maximum consistency
+            "topP": 0.95,
+            "maxOutputTokens": 2048,
             "responseMimeType": "application/json",  # Forces clean JSON, no fences
         },
         "safetySettings": [
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ],
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(GEMINI_VISION_URL, json=payload)
+    url = _vision_url()
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        response = await client.post(url, json=payload)
         response.raise_for_status()
 
     data = response.json()
-    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+    # Handle blocked responses
+    candidate = data.get("candidates", [{}])[0]
+    finish_reason = candidate.get("finishReason", "STOP")
+    if finish_reason not in ("STOP", "MAX_TOKENS"):
+        block_reason = data.get("promptFeedback", {}).get("blockReason", finish_reason)
+        raise ValueError(f"Gemini Vision blocked: {block_reason}")
+
+    raw_text = candidate["content"]["parts"][0]["text"]
     logger.info(f"[vision] Gemini raw response preview: {raw_text[:200]}")
 
     return safe_parse_json(raw_text)
@@ -154,13 +188,39 @@ async def analyze_form(
 
     raw = await call_gemini_vision(image_b64, mime_type, prompt)
 
-    issues = [FormIssue(**i) for i in raw.get("issues", [])]
+    # Validate and clamp score
+    score = raw.get("score", 50)
+    try:
+        score = max(0, min(100, int(score)))
+    except (TypeError, ValueError):
+        score = 50
+
+    # Derive safe_to_continue from score if not explicitly set
+    safe_to_continue = raw.get("safe_to_continue", score >= 40)
+
+    # Parse issues with graceful fallback
+    raw_issues = raw.get("issues", [])
+    issues = []
+    for i in raw_issues:
+        try:
+            issues.append(FormIssue(**i))
+        except Exception as e:
+            logger.warning(f"[vision] Skipping malformed issue: {e}")
+
+    # Derive label from score if not provided
+    label = raw.get("label", "")
+    if not label:
+        if score >= 90:   label = "Excellent form"
+        elif score >= 75: label = "Good form"
+        elif score >= 55: label = "Needs improvement"
+        elif score >= 35: label = "Poor form"
+        else:             label = "Cannot assess"
 
     return FormAnalysisResult(
-        score=raw.get("score", 0),
-        label=raw.get("label", "Cannot assess"),
+        score=score,
+        label=label,
         summary=raw.get("summary", ""),
-        safe_to_continue=raw.get("safe_to_continue", True),
+        safe_to_continue=safe_to_continue,
         issues=issues,
         cues=raw.get("cues", []),
         visibility_notes=raw.get("visibility_notes"),

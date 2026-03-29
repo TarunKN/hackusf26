@@ -5,6 +5,7 @@ google-cloud-logging
 fastapi
 uvicorn[standard]
 python-multipart
+aiofiles
 
 httpx
 pydantic

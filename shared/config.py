@@ -9,14 +9,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── Gemini / ADK ──────────────────────────────────────────────────────────────
-GEMINI_MODEL          = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-GEMINI_VISION_MODEL   = os.getenv("GEMINI_VISION_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL          = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
+GEMINI_VISION_MODEL   = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 GEMINI_API_KEY        = os.getenv("GEMINI_API_KEY", "")
 
-# ── ADK retry policy (mirrors the sample) ─────────────────────────────────────
-RETRY_INITIAL_DELAY   = float(os.getenv("RETRY_INITIAL_DELAY", "1"))
-RETRY_MAX_DELAY       = float(os.getenv("RETRY_MAX_DELAY", "3"))
-RETRY_ATTEMPTS        = int(os.getenv("RETRY_ATTEMPTS", "30"))
+# ── ADK retry policy ──────────────────────────────────────────────────────────
+# Keep retries low so the server fails fast on quota errors instead of
+# hammering the API for minutes and blocking the request thread.
+RETRY_INITIAL_DELAY   = float(os.getenv("RETRY_INITIAL_DELAY", "2"))
+RETRY_MAX_DELAY       = float(os.getenv("RETRY_MAX_DELAY", "8"))
+RETRY_ATTEMPTS        = int(os.getenv("RETRY_ATTEMPTS", "3"))
 
 # ── API ───────────────────────────────────────────────────────────────────────
 API_HOST              = os.getenv("API_HOST", "0.0.0.0")

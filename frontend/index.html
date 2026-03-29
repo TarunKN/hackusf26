@@ -787,13 +787,59 @@
         margin-top: 4px;
       }
 
+      /* ── Form coach result card inside chat ────────────────── */
+      .msg-form-card {
+        background: var(--bg2);
+        border: 1px solid var(--border);
+        border-top: 2px solid var(--lime);
+        border-radius: var(--r);
+        padding: 14px 16px;
+        max-width: 90%;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+      .msg-form-card .fc-verdict {
+        font-family: var(--display);
+        font-size: 22px;
+        letter-spacing: 2px;
+        margin-bottom: 4px;
+      }
+      .msg-form-card .fc-summary {
+        color: var(--text2);
+        margin-bottom: 10px;
+        font-size: 13px;
+      }
+      .msg-form-card .fc-cue {
+        padding: 5px 10px;
+        background: var(--lime-glow);
+        border-left: 2px solid var(--lime);
+        border-radius: 0 4px 4px 0;
+        color: var(--lime);
+        font-family: var(--mono);
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+      .msg-form-card .fc-issue {
+        padding: 5px 10px;
+        background: var(--orange-dim);
+        border-left: 2px solid var(--orange);
+        border-radius: 0 4px 4px 0;
+        color: var(--text2);
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+      .msg-form-card .fc-issue.major {
+        background: var(--red-dim);
+        border-left-color: var(--red);
+      }
+
       /* ── Chat area ─────────────────────────────────────────── */
       .chat-history {
         display: flex;
         flex-direction: column;
         gap: 16px;
         margin-bottom: 20px;
-        max-height: 420px;
+        max-height: 520px;
         overflow-y: auto;
         padding-right: 4px;
       }
@@ -1461,7 +1507,7 @@
             <div class="status-dot"></div>
             <span id="connStatus">Agents ready</span>
           </div>
-          <div class="user-chip" onclick="showView('settings')">
+          <div class="user-chip" onclick="showView('settings', null)">
             <div class="avatar" id="userAvatar">A</div>
           </div>
         </div>
@@ -1471,7 +1517,7 @@
       <div class="sidebar">
         <div class="nav-section">
           <div class="nav-label">Overview</div>
-          <div class="nav-item active" onclick="showView('dashboard')">
+          <div class="nav-item active" onclick="showView('dashboard', this)">
             <div class="nav-icon">
               <svg
                 width="16"
@@ -1492,7 +1538,7 @@
         </div>
         <div class="nav-section">
           <div class="nav-label">Agents</div>
-          <div class="nav-item" onclick="showView('formcoach')">
+          <div class="nav-item" onclick="showView('formcoach', this)">
             <div class="nav-icon">
               <svg
                 width="16"
@@ -1511,7 +1557,7 @@
               >!</span
             >
           </div>
-          <div class="nav-item" onclick="showView('nutrition')">
+          <div class="nav-item" onclick="showView('nutrition', this)">
             <div class="nav-icon">
               <svg
                 width="16"
@@ -1529,7 +1575,7 @@
             </div>
             Nutrition
           </div>
-          <div class="nav-item" onclick="showView('workout')">
+          <div class="nav-item" onclick="showView('workout', this)">
             <div class="nav-icon">
               <svg
                 width="16"
@@ -1544,7 +1590,7 @@
             </div>
             Workout Planner
           </div>
-          <div class="nav-item" onclick="showView('chat')">
+          <div class="nav-item" onclick="showView('chat', this)">
             <div class="nav-icon">
               <svg
                 width="16"
@@ -1559,11 +1605,11 @@
                 />
               </svg>
             </div>
-            Ask Orchestrator
+            Ask Coach
           </div>
         </div>
         <div class="nav-section" style="margin-top: auto">
-          <div class="nav-item" onclick="showView('settings')">
+          <div class="nav-item" onclick="showView('settings', this)">
             <div class="nav-icon">
               <svg
                 width="16"
@@ -2354,24 +2400,52 @@
           </div>
         </div>
 
-        <!-- ══ CHAT / ORCHESTRATOR ══ -->
+        <!-- ══ CHAT / ASK COACH ══ -->
         <div class="view" id="view-chat">
           <div class="page-header">
-            <div class="page-title">ASK THE<br /><em>ORCHESTRATOR</em></div>
+            <div class="page-title">ASK YOUR<br /><em>COACH</em></div>
             <div class="page-sub">
-              Talk directly to the root agent. It coordinates all specialist
-              agents and proactively connects signals across your training,
-              nutrition, and form.
+              Chat with your AI fitness coach. Ask about your form, nutrition,
+              workout plan, or anything health and fitness related.
             </div>
           </div>
           <div class="card" style="max-width: 760px">
+            <!-- ElevenLabs TTS controls -->
+            <div id="ttsBar" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2)">
+              <span style="font-size:11px;letter-spacing:1px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;flex-shrink:0">Voice</span>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2)">
+                <input type="checkbox" id="ttsEnabled" onchange="toggleTTS(this.checked)" style="width:auto;accent-color:var(--lime)" />
+                Coach speaks responses
+              </label>
+              <div id="ttsKeyField" style="display:none;flex:1;align-items:center;gap:6px">
+                <input type="password" id="elevenLabsKey" placeholder="ElevenLabs API key (sk_...)" style="flex:1;font-size:12px;padding:6px 10px" oninput="saveElevenLabsKey(this.value)" />
+                <select id="elevenVoice" style="font-size:12px;padding:6px 8px;width:auto" onchange="saveElevenLabsVoice(this.value)">
+                  <!-- Free-tier premade voices (available on all plans) -->
+                  <option value="cgSgspJ2msm6clMCkdW9">Jessica (free)</option>
+                  <option value="iP95p4xoKVk53GoZ742B">Chris (free)</option>
+                  <option value="onwK4e9ZLuTAKqWW03F9">Daniel (free)</option>
+                  <option value="XB0fDUnXU5powFXDhCwa">Charlotte (free)</option>
+                  <option value="pFZP5JQG7iQjIQuC4Bku">Lily (free)</option>
+                  <option value="nPczCjzI2devNBz1zQrb">Brian (free)</option>
+                  <option value="N2lVS1w4EtoT3dr4eOWO">Callum (free)</option>
+                  <option value="IKne3meq5aSn9XLyUdCD">Charlie (free)</option>
+                  <option value="XrExE9yKIg1WjnnlVkGX">Matilda (free)</option>
+                  <option value="bIHbv24MWmeRgasZH58o">Will (free)</option>
+                </select>
+                <button class="btn btn-ghost btn-sm" onclick="loadMyVoices()" style="padding:4px 8px;font-size:11px" title="Load voices from your ElevenLabs account">↻</button>
+              </div>
+              <div id="ttsStatus" style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:auto"></div>
+              <button class="btn btn-ghost btn-sm" onclick="testTTSVoice()" style="padding:4px 10px;font-size:11px" title="Test the selected voice">▶ Test</button>
+              <button id="ttsStopBtn" class="btn btn-ghost btn-sm" onclick="stopTTS()" style="display:none;padding:4px 10px;font-size:11px">■ Stop</button>
+            </div>
+
             <div class="chat-history" id="chatHistory">
               <div class="msg agent">
                 <div class="msg-avatar agent">FC</div>
                 <div class="msg-bubble">
-                  Hey! I'm your FormCoach orchestrator. I coordinate your
-                  trainer, nutritionist, and form coach agents. What would you
-                  like to work on today?
+                  Hey! I'm your FormCoach AI. I can help with your form analysis,
+                  nutrition, workout planning, and more. What would you like to
+                  work on today?
                 </div>
               </div>
             </div>
@@ -2384,7 +2458,7 @@
               <input
                 type="text"
                 id="chatInput"
-                placeholder="Ask anything — form, nutrition, plan adjustments..."
+                placeholder="Ask about your form, nutrition, workout plan..."
                 onkeydown="if (event.key === 'Enter') sendChat();"
               />
               <button class="btn btn-primary" onclick="sendChat()">Send</button>
@@ -2451,7 +2525,10 @@
       // STATE
       // ═══════════════════════════════════════════════════════════
       const S = {
-        apiUrl: "http://localhost:8000",
+        // Use relative URL so it works both locally and when deployed
+        apiUrl: window.location.origin === "null" || window.location.protocol === "file:"
+          ? "http://localhost:8000"
+          : window.location.origin,
         geminiKey: "",
         profile: {},
         goals: [],
@@ -2469,7 +2546,7 @@
       // ═══════════════════════════════════════════════════════════
       // NAVIGATION
       // ═══════════════════════════════════════════════════════════
-      function showView(name) {
+      function showView(name, callerEl) {
         document
           .querySelectorAll(".view")
           .forEach((v) => v.classList.remove("active"));
@@ -2478,7 +2555,20 @@
           .forEach((n) => n.classList.remove("active"));
         const v = document.getElementById("view-" + name);
         if (v) v.classList.add("active");
-        event?.currentTarget?.classList.add("active");
+        // Highlight nav item — works both from onclick and programmatic calls
+        if (callerEl) {
+          callerEl.classList.add("active");
+        } else {
+          const viewToLabel = {
+            dashboard: "Dashboard", formcoach: "Form Coach",
+            nutrition: "Nutrition", workout: "Workout Planner",
+            chat: "Coach", settings: "Settings",
+          };
+          const label = viewToLabel[name] || "";
+          document.querySelectorAll(".nav-item").forEach((n) => {
+            if (label && n.textContent.trim().includes(label)) n.classList.add("active");
+          });
+        }
         S.currentView = name;
         if (name === "dashboard") refreshDashboard();
         if (name === "settings") loadSettings();
@@ -2846,6 +2936,10 @@
           S.formAnalyses.push({ ...result, exercise });
           renderFormResults(result, exercise);
           refreshDashboard();
+
+          // ── Integrate Form Coach results into Orchestrator chat ──
+          injectFormCoachToChat(result, exercise);
+
         } catch (err) {
           alert("Analysis error: " + err.message);
         }
@@ -3425,17 +3519,65 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
         const budget = document.getElementById("mealBudget").value;
         setLoading("mealSpin", true);
         const area = document.getElementById("mealSuggestionsArea");
+        area.style.textAlign = "left";
         area.innerHTML =
-          '<div style="color:var(--text2);font-size:13px">Consulting nutrition agent…</div>';
+          '<div style="color:var(--text2);font-size:13px;padding:20px 0">Consulting nutrition agent…</div>';
         try {
-          const msg = `Give me 3 ${type} meal suggestions${budget ? ` under ${budget} calories` : ""}. My dietary restrictions: ${(S.profile.dietary_restrictions || []).join(", ") || "none"}. Goal: ${(S.profile.goals || ["general_health"])[0]}.`;
+          const restrictions = (S.profile.dietary_restrictions || []).join(", ") || "none";
+          const goal = (S.profile.goals || ["general_health"])[0];
+          const p = S.profile;
+          // Build a rich context message so the agent generates real suggestions
+          const msg = [
+            `Give me exactly 3 ${type} meal suggestions${budget ? ` under ${budget} calories` : ""}.`,
+            `User profile: weight ${p.weight_kg || 75}kg, goal: ${goal}, dietary restrictions: ${restrictions}.`,
+            `For each meal provide: meal name, approximate calories, protein/carbs/fat in grams, and a brief description.`,
+            `Format each as: "## Meal Name\n**Macros:** Xcal | Xg protein | Xg carbs | Xg fat\nDescription here."`,
+            `Stop after exactly 3 meals.`,
+          ].join(" ");
           const resp = await agentRun(msg);
-          area.innerHTML = `<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.8;color:var(--text2)">${resp}</div>`;
+          area.innerHTML = renderMealSuggestions(resp, type);
         } catch (e) {
           area.innerHTML =
-            '<div style="color:var(--red);font-size:13px">Error reaching agent. Check your API URL in settings.</div>';
+            `<div style="color:var(--red);font-size:13px;padding:20px 0">Error reaching agent: ${e.message}. Check your API URL in settings.</div>`;
         }
         setLoading("mealSpin", false);
+      }
+
+      function renderMealSuggestions(text, mealType) {
+        if (!text) return '<div style="color:var(--text3);font-size:13px">No suggestions returned.</div>';
+
+        // Try to parse structured ## Meal Name blocks
+        const mealBlocks = text.split(/\n(?=##\s)/);
+        const cards = mealBlocks
+          .map((block) => block.trim())
+          .filter((b) => b.length > 10)
+          .map((block) => {
+            const nameMatch = block.match(/^##\s+(.+)/m);
+            const macroMatch = block.match(/\*\*Macros[:\*]*\*?\*?\s*([^\n]+)/i) ||
+                               block.match(/(\d+\s*cal[^\n]*)/i);
+            const name = nameMatch ? nameMatch[1].trim() : null;
+            const macros = macroMatch ? macroMatch[1].trim() : "";
+            // Description = everything after the macros line
+            const desc = block
+              .replace(/^##\s+.+\n?/m, "")
+              .replace(/\*\*Macros[:\*]*\*?\*?\s*[^\n]+\n?/i, "")
+              .replace(/\*\*/g, "")
+              .trim();
+            if (!name) return null;
+            return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px;margin-bottom:12px">
+              <div style="font-weight:500;font-size:15px;margin-bottom:6px;color:var(--text)">${name}</div>
+              ${macros ? `<div style="font-family:var(--mono);font-size:12px;color:var(--text3);margin-bottom:8px">${macros}</div>` : ""}
+              ${desc ? `<div style="font-size:13px;color:var(--text2);line-height:1.6">${desc}</div>` : ""}
+            </div>`;
+          })
+          .filter(Boolean);
+
+        if (cards.length > 0) {
+          return `<div style="margin-bottom:8px;font-size:11px;letter-spacing:2px;color:var(--text3);font-family:var(--mono);text-transform:uppercase">${mealType} suggestions</div>` + cards.join("");
+        }
+
+        // Fallback: render as formatted text card
+        return `<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.8;color:var(--text2)">${text.replace(/\*\*/g, "").replace(/##\s*/g, "")}</div>`;
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -3593,6 +3735,90 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
       }
 
       // ═══════════════════════════════════════════════════════════
+      // FORM COACH → ORCHESTRATOR INTEGRATION
+      // ═══════════════════════════════════════════════════════════
+
+      /**
+       * After a form analysis completes, inject a rich summary card into the
+       * Orchestrator chat and give a local or live orchestrator response.
+       */
+      function injectFormCoachToChat(result, exercise) {
+        const verdict = (result.form_verdict || "").toLowerCase() || "decent";
+        const verdictColors = {
+          excellent: "var(--lime)", good: "var(--green)", decent: "var(--blue)",
+          bad: "var(--orange)", dangerous: "var(--red)", unclear: "var(--text2)",
+        };
+        const color = verdictColors[verdict] || "var(--text2)";
+        const safe = result.safe_to_continue !== false && verdict !== "dangerous";
+        const issues = result.issues || [];
+        const cues = (result.cues || []).slice(0, 3);
+
+        const issuesHtml = issues.slice(0, 3).map((iss) => {
+          const cls = iss.severity === "major" ? "major" : "";
+          return `<div class="fc-issue ${cls}">⚠ ${iss.title}${iss.cue ? ` — <em>${iss.cue}</em>` : ""}</div>`;
+        }).join("");
+
+        const cuesHtml = cues.map((c) =>
+          `<div class="fc-cue">→ ${c}</div>`
+        ).join("");
+
+        const safetyLine = safe
+          ? `<span class="chip chip-green" style="font-size:11px;margin-bottom:8px;display:inline-flex">✓ Safe to continue</span>`
+          : `<span class="chip chip-red" style="font-size:11px;margin-bottom:8px;display:inline-flex">⚠ Address form before heavy loading</span>`;
+
+        const cardHtml = `
+          <div class="msg-form-card">
+            <div style="font-size:11px;letter-spacing:2px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;margin-bottom:8px">Form Coach · ${exercise}</div>
+            <div class="fc-verdict" style="color:${color}">${verdict.toUpperCase()}</div>
+            <div class="fc-summary">${result.summary || result.label || ""}</div>
+            ${safetyLine}
+            ${issuesHtml ? `<div style="margin-top:10px;margin-bottom:4px;font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px">Issues</div>${issuesHtml}` : ""}
+            ${cuesHtml ? `<div style="margin-top:10px;margin-bottom:4px;font-size:11px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:1px">Coaching cues</div>${cuesHtml}` : ""}
+          </div>`;
+
+        // Inject into chat as an agent message
+        const history = document.getElementById("chatHistory");
+        const div = document.createElement("div");
+        div.className = "msg agent";
+        div.innerHTML = `<div class="msg-avatar agent">FC</div>${cardHtml}`;
+        history.appendChild(div);
+        scrollChat();
+
+        // Try live orchestrator; fall back to local response
+        const summary = `Form analysis complete for ${exercise}. Verdict: ${verdict}. ${issues.length} issue(s) found. Safe to continue: ${safe}. Top cue: ${cues[0] || "none"}.`;
+        agentRun(summary).then((reply) => {
+          if (reply && reply.length > 20 && !reply.startsWith("(No response")) {
+            addChatMsg("agent", reply);
+          } else {
+            addLocalOrchestratorResponse(verdict, exercise, safe, cues);
+          }
+        }).catch(() => {
+          addLocalOrchestratorResponse(verdict, exercise, safe, cues);
+        });
+
+        // Switch to chat view
+        showView("chat");
+        document.querySelectorAll(".nav-item").forEach((n) => {
+          if (n.textContent.trim().includes("Coach") && n.textContent.trim().includes("Ask")) n.classList.add("active");
+          else n.classList.remove("active");
+        });
+      }
+
+      function addLocalOrchestratorResponse(verdict, exercise, safe, cues) {
+        let msg = "";
+        if (verdict === "dangerous" || !safe) {
+          msg = `⚠️ Form Coach flagged a serious issue on your ${exercise}. I've noted this and will adjust your workout plan to avoid loading this movement until your form is corrected. Please review the cues above carefully.`;
+        } else if (verdict === "bad") {
+          msg = `Form Coach flagged some issues on your ${exercise}. I'd recommend focusing on the coaching cues before increasing load. I'll keep this in mind when building your next session.`;
+        } else if (verdict === "excellent" || verdict === "good") {
+          msg = `Great work on your ${exercise}! Form Coach gave you a ${verdict} rating. Keep applying those cues and you're good to progress load next session. 💪`;
+        } else {
+          msg = `Form Coach has reviewed your ${exercise} (${verdict}). Apply the coaching cues above and you'll be progressing safely. Let me know if you want a plan adjustment.`;
+        }
+        setTimeout(() => addChatMsg("agent", msg), 500);
+      }
+
+      // ═══════════════════════════════════════════════════════════
       // CHAT / ORCHESTRATOR
       // ═══════════════════════════════════════════════════════════
       async function sendChat() {
@@ -3611,7 +3837,7 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
           document.getElementById("typingIndicator").style.display = "none";
           addChatMsg(
             "agent",
-            `I couldn't reach the orchestrator (${e.message}). Check your API URL in settings.`,
+            `I couldn't reach the coach agent (${e.message}). Check your API URL in settings.`,
           );
         }
       }
@@ -3620,16 +3846,227 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
         const history = document.getElementById("chatHistory");
         const div = document.createElement("div");
         div.className = "msg " + role;
+        // Light markdown: **bold**, newlines → <br>
+        const formatted = text
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\n/g, "<br>");
         div.innerHTML = `
     <div class="msg-avatar ${role}">${role === "user" ? (S.profile.name || "U")[0].toUpperCase() : "FC"}</div>
-    <div class="msg-bubble">${text.replace(/\n/g, "<br>")}</div>`;
+    <div class="msg-bubble">${formatted}</div>`;
         history.appendChild(div);
         scrollChat();
+        // Speak agent responses via ElevenLabs if TTS is enabled
+        if (role === "agent" && TTS.enabled) {
+          speakWithElevenLabs(text);
+        }
       }
 
       function scrollChat() {
         const h = document.getElementById("chatHistory");
         h.scrollTop = h.scrollHeight;
+      }
+
+      // ═══════════════════════════════════════════════════════════
+      // ELEVENLABS TTS
+      // ═══════════════════════════════════════════════════════════
+
+      const TTS = {
+        enabled: false,
+        apiKey: "",
+        voiceId: "21m00Tcm4TlvDq8ikWAM",  // Rachel (calm) default
+        audio: null,       // current HTMLAudioElement
+        objectUrl: null,   // current blob URL to revoke
+      };
+
+      function toggleTTS(on) {
+        TTS.enabled = on;
+        const keyField = document.getElementById("ttsKeyField");
+        keyField.style.display = on ? "flex" : "none";
+        // Restore saved key/voice
+        const saved = localStorage.getItem("fc_tts");
+        if (saved) {
+          try {
+            const d = JSON.parse(saved);
+            if (d.apiKey) {
+              TTS.apiKey = d.apiKey;
+              document.getElementById("elevenLabsKey").value = d.apiKey;
+            }
+            if (d.voiceId) {
+              TTS.voiceId = d.voiceId;
+              document.getElementById("elevenVoice").value = d.voiceId;
+            }
+          } catch (e) {}
+        }
+        setTTSStatus(on ? "ready" : "");
+      }
+
+      function saveElevenLabsKey(val) {
+        TTS.apiKey = val.trim();
+        _saveTTSPrefs();
+      }
+
+      function saveElevenLabsVoice(val) {
+        TTS.voiceId = val;
+        _saveTTSPrefs();
+      }
+
+      function _saveTTSPrefs() {
+        localStorage.setItem("fc_tts", JSON.stringify({
+          apiKey: TTS.apiKey,
+          voiceId: TTS.voiceId,
+        }));
+      }
+
+      function setTTSStatus(msg) {
+        const el = document.getElementById("ttsStatus");
+        if (el) el.textContent = msg;
+      }
+
+      function stopTTS() {
+        if (TTS.audio) {
+          TTS.audio.pause();
+          TTS.audio.currentTime = 0;
+          TTS.audio = null;
+        }
+        if (TTS.objectUrl) {
+          URL.revokeObjectURL(TTS.objectUrl);
+          TTS.objectUrl = null;
+        }
+        document.getElementById("ttsStopBtn").style.display = "none";
+        setTTSStatus("stopped");
+      }
+
+      /**
+       * Fetch the user's own voices from ElevenLabs and populate the dropdown.
+       * This lets users with custom/cloned voices use them without hardcoding IDs.
+       */
+      async function loadMyVoices() {
+        if (!TTS.apiKey) {
+          setTTSStatus("⚠ Enter API key first");
+          return;
+        }
+        setTTSStatus("loading voices…");
+        try {
+          const resp = await fetch("https://api.elevenlabs.io/v1/voices", {
+            headers: { "xi-api-key": TTS.apiKey },
+          });
+          if (!resp.ok) throw new Error(`${resp.status}`);
+          const data = await resp.json();
+          const voices = data.voices || [];
+          if (!voices.length) { setTTSStatus("no voices found"); return; }
+
+          const sel = document.getElementById("elevenVoice");
+          sel.innerHTML = voices
+            .map((v) => `<option value="${v.voice_id}">${v.name}</option>`)
+            .join("");
+
+          // Restore previously saved voice if it's in the list
+          if (TTS.voiceId && voices.find((v) => v.voice_id === TTS.voiceId)) {
+            sel.value = TTS.voiceId;
+          } else {
+            TTS.voiceId = voices[0].voice_id;
+            sel.value = TTS.voiceId;
+            _saveTTSPrefs();
+          }
+          setTTSStatus(`${voices.length} voices loaded`);
+        } catch (e) {
+          setTTSStatus("⚠ " + e.message);
+        }
+      }
+
+      function testTTSVoice() {
+        if (!TTS.apiKey) {
+          setTTSStatus("⚠ Enter your ElevenLabs API key first");
+          return;
+        }
+        const testLines = [
+          "Great work! Your squat form is looking solid. Keep your chest up and drive through your heels.",
+          "Hey! I'm your FormCoach AI. Let's get to work.",
+          "Your protein intake is on track. Make sure to hit your carb targets before training today.",
+        ];
+        const line = testLines[Math.floor(Math.random() * testLines.length)];
+        speakWithElevenLabs(line);
+      }
+
+      /**
+       * Strip markdown/HTML from text before sending to TTS.
+       */
+      function stripForTTS(text) {
+        return text
+          .replace(/<[^>]+>/g, " ")          // strip HTML tags
+          .replace(/\*\*(.+?)\*\*/g, "$1")   // **bold**
+          .replace(/\*(.+?)\*/g, "$1")        // *italic*
+          .replace(/#+\s/g, "")              // headings
+          .replace(/→\s*/g, "")              // arrows
+          .replace(/\s{2,}/g, " ")           // collapse whitespace
+          .trim();
+      }
+
+      /**
+       * Call ElevenLabs TTS API and play the result.
+       * Uses the standard /v1/text-to-speech/{voice_id} endpoint.
+       */
+      async function speakWithElevenLabs(text) {
+        if (!TTS.enabled || !TTS.apiKey) return;
+        const clean = stripForTTS(text);
+        if (!clean || clean.length < 3) return;
+
+        // Stop any currently playing audio
+        stopTTS();
+
+        setTTSStatus("▶ speaking…");
+        document.getElementById("ttsStopBtn").style.display = "inline-flex";
+
+        try {
+          const resp = await fetch(
+            `https://api.elevenlabs.io/v1/text-to-speech/${TTS.voiceId}`,
+            {
+              method: "POST",
+              headers: {
+                "xi-api-key": TTS.apiKey,
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+              },
+              body: JSON.stringify({
+                text: clean,
+                model_id: "eleven_turbo_v2_5",   // fastest, lowest latency
+                voice_settings: {
+                  stability: 0.45,
+                  similarity_boost: 0.80,
+                  style: 0.15,
+                  use_speaker_boost: true,
+                },
+              }),
+            }
+          );
+
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            const msg = err?.detail?.message || err?.detail || `ElevenLabs error ${resp.status}`;
+            setTTSStatus("⚠ " + msg);
+            document.getElementById("ttsStopBtn").style.display = "none";
+            return;
+          }
+
+          const blob = await resp.blob();
+          TTS.objectUrl = URL.createObjectURL(blob);
+          TTS.audio = new Audio(TTS.objectUrl);
+          TTS.audio.onended = () => {
+            setTTSStatus("ready");
+            document.getElementById("ttsStopBtn").style.display = "none";
+            URL.revokeObjectURL(TTS.objectUrl);
+            TTS.objectUrl = null;
+            TTS.audio = null;
+          };
+          TTS.audio.onerror = () => {
+            setTTSStatus("⚠ playback error");
+            document.getElementById("ttsStopBtn").style.display = "none";
+          };
+          await TTS.audio.play();
+        } catch (e) {
+          setTTSStatus("⚠ " + e.message);
+          document.getElementById("ttsStopBtn").style.display = "none";
+        }
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -3666,6 +4103,7 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
       // ═══════════════════════════════════════════════════════════
       async function agentRun(message) {
         // POST to the ADK /run endpoint
+        // ADK returns a JSON array of event objects; we find the last model turn
         const resp = await fetch(`${S.apiUrl}/run`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3676,22 +4114,52 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
             new_message: { role: "user", parts: [{ text: message }] },
           }),
         });
-        if (!resp.ok) throw new Error(`Agent error ${resp.status}`);
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => "");
+          throw new Error(`Agent error ${resp.status}: ${errText.slice(0, 200)}`);
+        }
         const data = await resp.json();
-        // Extract text from ADK response format
-        const parts =
-          data?.candidates?.[0]?.content?.parts ||
-          data?.content?.parts ||
-          data?.parts ||
-          [];
-        return (
-          parts
-            .map((p) => p.text || "")
-            .join("")
-            .trim() ||
-          data?.text ||
-          JSON.stringify(data).slice(0, 300)
-        );
+
+        // ADK /run returns an array of event objects like:
+        // [{ "content": { "role": "model", "parts": [{"text": "..."}] }, ... }, ...]
+        // We collect all model text parts from the last model event.
+        let text = "";
+        if (Array.isArray(data)) {
+          // Walk events in reverse to find the last model response
+          for (let i = data.length - 1; i >= 0; i--) {
+            const ev = data[i];
+            const role = ev?.content?.role || ev?.author;
+            // Accept model/assistant turns (not tool calls)
+            if (role === "model" || role === "assistant") {
+              const parts = ev?.content?.parts || [];
+              const candidate = parts
+                .filter((p) => p.text)
+                .map((p) => p.text)
+                .join("")
+                .trim();
+              if (candidate) { text = candidate; break; }
+            }
+          }
+          // Fallback: collect all text parts across all events
+          if (!text) {
+            text = data
+              .flatMap((ev) => ev?.content?.parts || [])
+              .filter((p) => p.text)
+              .map((p) => p.text)
+              .join("")
+              .trim();
+          }
+        } else {
+          // Single-object fallback (older ADK versions)
+          const parts =
+            data?.candidates?.[0]?.content?.parts ||
+            data?.content?.parts ||
+            data?.parts || [];
+          text = parts.map((p) => p.text || "").join("").trim() ||
+            data?.text || "";
+        }
+
+        return text || "(No response from agent — check server logs)";
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -3715,6 +4183,7 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
       // INIT
       // ═══════════════════════════════════════════════════════════
       (function init() {
+        // Restore app state
         const saved = localStorage.getItem("fc_state");
         if (saved) {
           try {
@@ -3724,6 +4193,24 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
           } catch (e) {
             /* show onboarding */
           }
+        }
+
+        // Restore TTS preferences (key/voice only — TTS stays off by default for privacy)
+        const savedTTS = localStorage.getItem("fc_tts");
+        if (savedTTS) {
+          try {
+            const t = JSON.parse(savedTTS);
+            if (t.apiKey) {
+              TTS.apiKey = t.apiKey;
+              const keyEl = document.getElementById("elevenLabsKey");
+              if (keyEl) keyEl.value = t.apiKey;
+            }
+            if (t.voiceId) {
+              TTS.voiceId = t.voiceId;
+              const voiceEl = document.getElementById("elevenVoice");
+              if (voiceEl) voiceEl.value = t.voiceId;
+            }
+          } catch (e) {}
         }
       })();
     </script>
