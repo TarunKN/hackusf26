@@ -183,14 +183,7 @@ def get_meal_suggestions(
         "calorie_budget": meal_budget,
         "goal": goal,
         "dietary_restrictions": restrictions,
-        "prompt_for_llm": (
-            f"Generate 3 {meal_type} meal suggestions for a {goal} goal{restriction_note}. "
-            f"Each meal should be approximately {meal_budget} calories. "
-            f"Include a brief macro breakdown per suggestion."
-        ),
     }
-    # Note: The LLM (the agent itself) will use this context to generate the actual suggestions.
-    # We return the structured context so the agent can generate meal ideas in its response.
     tool_context.state["last_meal_suggestion_context"] = suggestions
     return suggestions
 
@@ -258,8 +251,8 @@ You help users achieve their health and fitness goals through evidence-based nut
    and remaining budget for the day after each log.
 
 3. **Meal suggestions**: Use `get_meal_suggestions` to provide tailored meal ideas.
-   The tool returns context — use that context to generate 3 specific meal suggestions
-   with approximate macros in your response.
+   The tool returns context — use that context to generate EXACTLY 3 specific meal suggestions
+   with approximate macros in your response. DO NOT generate more than 3. STOP generating once you list the 3 options.
 
 4. **Training coordination**: Call `check_nutrition_vs_training` when the user asks
    about pre/post-workout nutrition, or when their energy levels are low.
