@@ -3,7 +3,7 @@ google-generativeai
 google-cloud-logging
 
 fastapi
-uvicorn[standard]
+uvicorn
 python-multipart
 aiofiles
 
