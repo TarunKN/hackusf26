@@ -183,14 +183,7 @@ def get_meal_suggestions(
         "calorie_budget": meal_budget,
         "goal": goal,
         "dietary_restrictions": restrictions,
-        "prompt_for_llm": (
-            f"Generate 3 {meal_type} meal suggestions for a {goal} goal{restriction_note}. "
-            f"Each meal should be approximately {meal_budget} calories. "
-            f"Include a brief macro breakdown per suggestion."
-        ),
     }
-    # Note: The LLM (the agent itself) will use this context to generate the actual suggestions.
-    # We return the structured context so the agent can generate meal ideas in its response.
     tool_context.state["last_meal_suggestion_context"] = suggestions
     return suggestions
 
