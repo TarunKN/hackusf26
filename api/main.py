@@ -14,7 +14,7 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from google.adk.cli.fast_api import get_fast_api_app
 
 # ── Path setup ────────────────────────────────────────────────────────────────
@@ -56,6 +56,11 @@ api = get_fast_api_app(
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 if FRONTEND_DIR.exists():
+    @api.get("/", include_in_schema=False)
+    async def redirect_to_ui():
+        """Redirect root URL to the frontend SPA."""
+        return RedirectResponse(url="/ui/")
+
     @api.get("/ui", include_in_schema=False)
     @api.get("/ui/", include_in_schema=False)
     async def serve_index():
