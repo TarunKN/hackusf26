@@ -1486,7 +1486,7 @@
         <!-- Stat tiles -->
         <div class="grid-4" style="margin-bottom:20px">
           <div class="stat-tile">
-            <div class="stat-label">Form score</div>
+            <div class="stat-label">Form check</div>
             <div class="stat-value stat-lime" id="dashFormScore">—</div>
             <div class="stat-sub" id="dashFormEx">No analysis yet</div>
             <div class="progress-bar">
@@ -1630,21 +1630,17 @@
             </div>
 
             <div id="formResults" style="display:none;flex-direction:column;gap:16px">
-              <!-- Score card -->
+              <div id="formAngleBanner"
+                style="display:none;padding:14px 16px;background:rgba(255,180,0,0.12);border:1px solid var(--orange);border-radius:var(--r2);font-size:13px;color:var(--text2);line-height:1.55">
+              </div>
+              <!-- Verdict card -->
               <div class="card">
-                <div style="display:flex;align-items:center;gap:20px">
-                  <div class="score-ring">
-                    <svg width="100" height="100" viewBox="0 0 100 100">
-                      <circle class="track" cx="50" cy="50" r="45" />
-                      <circle class="fill" id="formScoreArc" cx="50" cy="50" r="45" stroke="var(--lime)" />
-                    </svg>
-                    <div class="score-center">
-                      <div class="score-num" id="formScoreNum">—</div>
-                      <div class="score-denom">/100</div>
-                    </div>
-                  </div>
-                  <div style="flex:1">
-                    <div style="font-family:var(--display);font-size:24px;letter-spacing:1px;margin-bottom:6px"
+                <div style="display:flex;align-items:stretch;gap:20px">
+                  <div id="formVerdictBadge"
+                    style="min-width:132px;max-width:40%;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-size:18px;letter-spacing:2px;text-align:center;padding:16px 12px;line-height:1.25;background:var(--bg2);border:1px solid var(--border);color:var(--text3)">
+                    —</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-family:var(--display);font-size:22px;letter-spacing:1px;margin-bottom:6px"
                       id="formScoreLabel">—</div>
                     <div style="font-size:13px;color:var(--text2);line-height:1.6" id="formScoreSummary">—</div>
                     <div style="margin-top:12px" id="safetyChip"></div>
@@ -1663,7 +1659,7 @@
 
               <!-- Cues -->
               <div class="card card-accent" id="formCuesCard" style="display:none">
-                <div class="card-header"><span class="card-title">Coaching cues</span></div>
+                <div class="card-header"><span class="card-title" id="formCuesTitle">Coaching cues</span></div>
                 <ul id="formCuesList" style="list-style:none;display:flex;flex-direction:column;gap:10px"></ul>
               </div>
 
@@ -2001,13 +1997,22 @@
     // DASHBOARD
     // ═══════════════════════════════════════════════════════════
     function refreshDashboard() {
-      // Form score
+      // Form check (verdict)
       const latest = S.formAnalyses[S.formAnalyses.length - 1];
       if (latest) {
-        document.getElementById('dashFormScore').textContent = latest.score;
+        let v = (latest.form_verdict || '').toLowerCase();
+        if (latest.can_score_reliably === false) v = 'unclear';
+        if (!v && typeof latest.score === 'number') {
+          v = latest.score >= 70 ? 'good' : latest.score >= 40 ? 'bad' : 'bad';
+        }
+        const vLabel = { excellent: 'Excellent', good: 'Good', decent: 'Decent', bad: 'Bad', dangerous: 'Dangerous', unclear: 'Unclear' };
+        document.getElementById('dashFormScore').textContent = vLabel[v] || '—';
         document.getElementById('dashFormEx').textContent = latest.exercise;
-        document.getElementById('dashFormBar').style.width = latest.score + '%';
-        if (!latest.safe_to_continue) {
+        const bar = document.getElementById('dashFormBar');
+        const w = { excellent: '100%', good: '88%', decent: '72%', bad: '48%', dangerous: '12%', unclear: '0%' };
+        bar.style.width = w[v] || '0%';
+        bar.className = 'progress-fill ' + (v === 'excellent' || v === 'good' || v === 'decent' ? 'fill-lime' : v === 'bad' ? 'fill-orange' : v === 'dangerous' ? 'fill-red' : 'fill-lime');
+        if (!latest.safe_to_continue || v === 'dangerous') {
           S.flags.medical = true;
           document.getElementById('alertMedical').style.display = 'flex';
           document.getElementById('formBadge').style.display = 'inline';
@@ -2070,6 +2075,7 @@
     uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); handleMedia(e.dataTransfer.files[0]); });
 
     let currentMediaFile = null;
+    let formPreviewObjectUrl = null;
     /** Browsers often omit file.type (e.g. drag-drop on Windows); fall back on extension. */
     function isVideoFile(file) {
       if (file.type && file.type.startsWith('video/')) return true;
@@ -2100,12 +2106,43 @@
     function handleMedia(file) {
       if (!file) return;
       currentMediaFile = file;
-      const url = URL.createObjectURL(file);
-      const isVid = isVideoFile(file);
+      if (formPreviewObjectUrl) {
+        URL.revokeObjectURL(formPreviewObjectUrl);
+        formPreviewObjectUrl = null;
+      }
+      formPreviewObjectUrl = URL.createObjectURL(file);
       const previewEl = document.getElementById('mediaPreview');
-      previewEl.innerHTML = isVid
-        ? `<video src="${url}" controls muted style="width:100%;border-radius:8px;max-height:280px;background:#000"></video>`
-        : `<img src="${url}" style="width:100%;border-radius:8px;max-height:280px;object-fit:cover">`;
+      previewEl.innerHTML = '';
+      const isVid = isVideoFile(file);
+      if (isVid) {
+        const v = document.createElement('video');
+        v.src = formPreviewObjectUrl;
+        v.controls = true;
+        v.muted = true;
+        v.defaultMuted = true;
+        v.autoplay = true;
+        v.loop = true;
+        v.playsInline = true;
+        v.setAttribute('playsinline', '');
+        v.setAttribute('webkit-playsinline', '');
+        v.preload = 'auto';
+        v.style.cssText = 'width:100%;border-radius:8px;max-height:280px;background:#000;object-fit:contain;display:block';
+        previewEl.appendChild(v);
+        let started = false;
+        function tryPlayPreview() {
+          if (started) return;
+          started = true;
+          v.play().catch(() => {});
+        }
+        v.addEventListener('canplay', tryPlayPreview);
+        v.addEventListener('loadeddata', tryPlayPreview);
+      } else {
+        const img = document.createElement('img');
+        img.src = formPreviewObjectUrl;
+        img.alt = 'Preview';
+        img.style.cssText = 'width:100%;border-radius:8px;max-height:280px;object-fit:cover;display:block';
+        previewEl.appendChild(img);
+      }
       previewEl.style.display = 'block';
       document.getElementById('uploadIcon').style.display = 'none';
       document.getElementById('uploadHint').style.display = 'none';
@@ -2161,19 +2198,41 @@
       const injLine = injuries.length ? `\nKnown injury history: ${injuries.join(', ')}. Flag any movement that could aggravate these.` : '';
       const focusStr = focus.length ? focus.join(', ') : 'overall form and safety';
       const mediaLine = isVideo
-        ? `Analyze the athlete's form in this video (use motion and timing across frames) for: ${exercise}.`
-        : `Analyze the athlete's form in this image for: ${exercise}.`;
+        ? `Analyze the athlete's form in this video (use motion and timing across frames).`
+        : `Analyze the athlete's form in this image.`;
       return `You are an expert strength and conditioning coach with deep biomechanical knowledge.
 ${mediaLine}
+The user labeled this as: "${exercise || 'unspecified'}". Infer the actual movement (JSON: inferred_exercise, selection_matches_video). Coach **the movement actually shown**. If the label does not match the video, note it briefly and set selection_matches_video to false.
 Experience level: ${level}.${injLine}
 Focus on: ${focusStr}.
 
-Provide your assessment matching the requested JSON schema.
-- Keep the summary short (1-2 sentences).
-- Identify AT MOST 5 biomechanical issues, if any. Provide an actionable cue for each.
-- Provide 3-5 general coaching cues.
-- If you cannot see the athlete clearly, set label to "Cannot assess".
-- You MUST stop generating after the form is fully analyzed. Do not write an endlessly repeating list.`;
+There is **no numeric score**. Output only **form_verdict**, one of: **excellent**, **good**, **decent**, **bad**, **dangerous**, or **unclear**.
+
+Use this order from best to worst: excellent → good → decent → bad → dangerous.
+
+**excellent**: Movement is strong and technically very solid for this exercise — only tiny refinements if any. Rare; do not overuse.
+
+**good**: Clearly solid form — safe to train, minor issues at most.
+
+**decent**: **Acceptable / semi-decent / sufficient** — not perfect, but **fine to keep training** (e.g. a reasonable push-up with small quirks, slightly soft core, or imperfect but safe range). **Default here or "good" for most okay gym footage** when it is clearly not terrible. This is **not** dangerous.
+
+**bad**: Reserve for **clearly** weak or sloppy movement **multiple** visible problems, or one **major** fault (e.g. severe uncontrolled sag, elbows wildly wrong, barely completing reps). **Do NOT use "bad" for a "decent" or typical gym push-up** — slightly uneven hips, small ROM quirks, or "could be prettier" still belong in **decent** or **good**.
+
+**Tie-breaker (critical)**: If you are unsure between **decent** and **bad**, you **must** choose **decent**. Only output **bad** when you would honestly tell the athlete "that rep is not acceptable to repeat without fixing form." A rep that is **okay for general training** — even if imperfect — is **decent** or **good**, never **bad**.
+
+**dangerous**: **Only** when an **unambiguous, high-risk** pattern is **clearly visible** (e.g. severe spinal loading in a bad hinge, extreme uncontrolled positions under load, obvious catastrophic push-up collapse). **Do NOT label "dangerous" for semi-decent, acceptable, or ambiguous push-ups** — when in doubt between decent/good vs dangerous, choose **decent** or **bad**, not dangerous. **dangerous** must be rarer than bad.
+
+**unclear**: Cannot judge without guessing (body out of frame, unusable blur, etc.). Set **can_score_reliably** false. **summary** must start with: "Video angle needs better placement for more accurate results." Then one short sentence. **cues** = 3–5 lenient filming tips. **label** = "Limited assessment".
+
+**Rules**:
+- Push-ups that are **mediocre but acceptable** → **decent** or **good**, never **dangerous** or **bad** unless truly sloppy.
+- **dangerous** requires obvious acute-risk visuals — not "could be better."
+- **bad** is **not** a label for "decent but not excellent" — that is **decent** or **good**.
+- If you can see enough to judge: never **unclear**.
+- Do **not** use numbers.
+
+Provide JSON matching the schema. If can_score_reliably is false, **issues** may be empty; **cues** = filming tips. If can_score_reliably is true: up to 5 issues if any; 3–5 coaching cues.
+- You MUST stop after the analysis.`;
     }
 
     async function callGeminiVision(b64, mime, prompt) {
@@ -2181,13 +2240,19 @@ Provide your assessment matching the requested JSON schema.
       const body = {
         contents: [{ parts: [{ inline_data: { mime_type: mime, data: b64 } }, { text: prompt }] }],
         generationConfig: {
-          temperature: 0.2,
+          temperature: 0,
+          topP: 0.95,
           maxOutputTokens: 8192,
           responseMimeType: "application/json",
           responseSchema: {
             type: "OBJECT",
             properties: {
-              score: { type: "INTEGER" },
+              inferred_exercise: { type: "STRING" },
+              selection_matches_video: { type: "BOOLEAN" },
+              view_confidence: { type: "STRING" },
+              camera_limitations: { type: "STRING", nullable: true },
+              can_score_reliably: { type: "BOOLEAN" },
+              form_verdict: { type: "STRING" },
               label: { type: "STRING" },
               summary: { type: "STRING" },
               safe_to_continue: { type: "BOOLEAN" },
@@ -2218,39 +2283,99 @@ Provide your assessment matching the requested JSON schema.
       const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!r.ok) { const e = await r.json(); throw new Error(e.error?.message || 'Gemini error'); }
       const d = await r.json();
-      const candidate = d.candidates[0];
-      if (candidate.finishReason !== "STOP") {
+      const candidate = d.candidates?.[0];
+      if (!candidate) {
+        const msg = d.error?.message || d.promptFeedback?.blockReason || 'No response from model (blocked or empty).';
+        throw new Error(msg);
+      }
+      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
         throw new Error('Analysis stopped unexpectedly (Finish reason: ' + candidate.finishReason + ').');
       }
-      const txt = candidate.content.parts[0].text;
-      return JSON.parse(txt.replace(/```json|```/g, '').trim());
+      const part = candidate.content?.parts?.[0];
+      const txt = part?.text;
+      if (!txt) throw new Error('No text in model response.');
+      let parsed;
+      try {
+        parsed = JSON.parse(txt.replace(/```json|```/g, '').trim());
+      } catch (e) {
+        throw new Error('Could not parse analysis JSON. Try again.');
+      }
+      if (parsed.can_score_reliably === false) parsed.form_verdict = 'unclear';
+      const fv = (parsed.form_verdict || '').toLowerCase().trim();
+      const allowed = ['excellent', 'good', 'decent', 'bad', 'dangerous', 'unclear'];
+      if (allowed.includes(fv)) parsed.form_verdict = fv;
+      else parsed.form_verdict = 'decent';
+      if (parsed.form_verdict === 'dangerous') parsed.safe_to_continue = false;
+      return parsed;
     }
 
     function renderFormResults(data, exercise) {
       const results = document.getElementById('formResults');
       results.style.display = 'flex';
 
-      // Score ring
-      const score = Math.max(0, Math.min(100, data.score || 0));
-      const circ = 283;
-      document.getElementById('formScoreNum').textContent = score;
-      document.getElementById('formScoreLabel').textContent = data.label || '—';
-      document.getElementById('formScoreSummary').textContent = data.summary || '';
-      const arc = document.getElementById('formScoreArc');
-      const col = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--orange)' : 'var(--red)';
-      arc.style.stroke = col;
-      setTimeout(() => arc.style.strokeDashoffset = circ - (score / 100) * circ, 100);
+      const reliable = data.can_score_reliably !== false;
+      let verdict = (data.form_verdict || '').toLowerCase().trim();
+      if (!reliable) verdict = 'unclear';
+      if (!verdict) verdict = reliable ? 'good' : 'unclear';
+      const angleBanner = document.getElementById('formAngleBanner');
+      if (angleBanner) {
+        if (verdict === 'unclear' && data.summary) {
+          angleBanner.style.display = 'block';
+          angleBanner.textContent = data.summary;
+        } else {
+          angleBanner.style.display = 'none';
+          angleBanner.textContent = '';
+        }
+      }
 
-      // Safety chip
-      const safe = data.safe_to_continue !== false;
-      document.getElementById('safetyChip').innerHTML = safe
-        ? '<span class="chip chip-green">✓ Safe to continue</span>'
-        : '<span class="chip chip-red">⚠ Pause training — address issues</span>';
+      const badge = document.getElementById('formVerdictBadge');
+      const vdMap = {
+        excellent: { text: 'EXCELLENT', bg: 'rgba(0,255,136,0.18)', br: 'var(--lime)', fg: 'var(--lime)', fs: '15px' },
+        good: { text: 'GOOD', bg: 'rgba(0,255,136,0.12)', br: 'var(--green)', fg: 'var(--green)', fs: '18px' },
+        decent: { text: 'DECENT', bg: 'rgba(100,200,255,0.12)', br: 'var(--blue)', fg: 'var(--blue)', fs: '17px' },
+        bad: { text: 'BAD', bg: 'rgba(255,160,60,0.12)', br: 'var(--orange)', fg: 'var(--orange)', fs: '18px' },
+        dangerous: { text: 'DANGEROUS', bg: 'rgba(255,77,77,0.15)', br: 'var(--red)', fg: 'var(--red)', fs: '13px' },
+        unclear: { text: "CAN'T TELL", bg: 'var(--bg2)', br: 'var(--border)', fg: 'var(--text2)', fs: '14px' }
+      };
+      const vd = vdMap[verdict] || vdMap.unclear;
+      if (badge) {
+        badge.textContent = vd.text;
+        badge.style.background = vd.bg;
+        badge.style.border = '1px solid ' + vd.br;
+        badge.style.color = vd.fg;
+        badge.style.fontSize = vd.fs || '18px';
+        badge.style.minWidth = verdict === 'excellent' || verdict === 'dangerous' ? '148px' : '132px';
+      }
+
+      const defaultLabels = {
+        excellent: 'Strong technique — minor refinements only',
+        good: 'Solid form — safe to progress with coaching',
+        decent: 'Acceptable — keep training, polish over time',
+        bad: 'Form needs real improvement before load jumps',
+        dangerous: 'High injury risk — fix pattern before heavy loading',
+        unclear: 'Not enough visible to judge'
+      };
+      document.getElementById('formScoreLabel').textContent = data.label || defaultLabels[verdict] || '—';
+      document.getElementById('formScoreSummary').textContent = data.summary || '';
+
+      const safe = verdict === 'dangerous' ? false : (verdict === 'unclear' ? true : (data.safe_to_continue !== false));
+      let chipHtml = '<span class="chip chip-green">✓ Ok to keep training (follow cues)</span>';
+      if (verdict === 'excellent' || verdict === 'good' || verdict === 'decent') {
+        chipHtml = '<span class="chip chip-green">✓ Fine to train — adjust cues as needed</span>';
+      }
+      if (verdict === 'dangerous') {
+        chipHtml = '<span class="chip chip-red">⚠ Stop loading heavy — address form first</span>';
+      } else if (verdict === 'bad') {
+        chipHtml = '<span class="chip chip-orange">⚠ Improve form before progressing load</span>';
+      } else if (verdict === 'unclear') {
+        chipHtml = '<span class="chip chip-gray">Film a clearer angle for a solid read</span>';
+      }
+      document.getElementById('safetyChip').innerHTML = chipHtml;
 
       // Issues
       const issues = data.issues || [];
+      document.getElementById('formIssuesCard').style.display = issues.length ? 'block' : 'none';
       if (issues.length) {
-        document.getElementById('formIssuesCard').style.display = 'block';
         document.getElementById('issueCountLabel').textContent = `${issues.length} found`;
         document.getElementById('formIssuesList').innerHTML = issues.map((iss, i) => `
       <div class="issue-item" style="animation-delay:${i * 0.07}s">
@@ -2266,19 +2391,41 @@ Provide your assessment matching the requested JSON schema.
 
       // Cues
       const cues = data.cues || [];
+      const cuesTitle = document.getElementById('formCuesTitle');
+      if (cuesTitle) cuesTitle.textContent = reliable ? 'Coaching cues' : 'Filming tips (good-enough angles)';
+      document.getElementById('formCuesCard').style.display = cues.length ? 'block' : 'none';
       if (cues.length) {
-        document.getElementById('formCuesCard').style.display = 'block';
         document.getElementById('formCuesList').innerHTML = cues.map((c, i) => `
       <li style="display:flex;gap:10px;font-size:14px;line-height:1.6;animation:fadeUp .3s ease ${i * 0.06}s forwards;opacity:0">
         <span style="color:var(--lime);font-family:var(--mono);flex-shrink:0">→</span>${c}
       </li>`).join('');
       }
 
-      // Visibility notes
+      // Detection + view notes (camera angle, confidence)
+      const vn = document.getElementById('formVisNotes');
+      const lines = [];
+      if (data.inferred_exercise) {
+        lines.push('Movement detected: ' + data.inferred_exercise);
+      }
+      if (data.selection_matches_video === false && exercise) {
+        lines.push('Your selection was "' + exercise + '" — the video may show a different movement; analysis targets what is visible.');
+      }
+      if (data.view_confidence && data.view_confidence !== 'high') {
+        lines.push('View confidence: ' + data.view_confidence + ' — judgment favors what is clearly visible.');
+      }
+      if (data.camera_limitations) {
+        lines.push('Camera / angle: ' + data.camera_limitations);
+      }
       if (data.visibility_notes) {
-        const vn = document.getElementById('formVisNotes');
+        lines.push(data.visibility_notes);
+      }
+      if (lines.length) {
         vn.style.display = 'block';
-        vn.textContent = '⚠ ' + data.visibility_notes;
+        vn.style.whiteSpace = 'pre-wrap';
+        vn.textContent = lines.join('\n\n');
+      } else {
+        vn.style.display = 'none';
+        vn.textContent = '';
       }
     }
 
