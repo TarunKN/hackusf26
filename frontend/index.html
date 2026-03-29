@@ -4043,27 +4043,14 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
         TTS.enabled = on;
         const keyField = document.getElementById("ttsKeyField");
         keyField.style.display = on ? "flex" : "none";
-        // Restore saved key/voice
-        const saved = localStorage.getItem("fc_tts");
-        if (saved) {
-          try {
-            const d = JSON.parse(saved);
-            if (d.apiKey) {
-              TTS.apiKey = d.apiKey;
-              document.getElementById("elevenLabsKey").value = d.apiKey;
-            }
-            if (d.voiceId) {
-              TTS.voiceId = d.voiceId;
-              document.getElementById("elevenVoice").value = d.voiceId;
-            }
-          } catch (e) {}
-        }
         const stopBtn = document.getElementById("ttsStopBtn");
         if (on) {
+          // Do NOT restore from localStorage here — that already happens at init().
+          // Restoring here would overwrite whatever the current user typed.
           stopBtn.style.display = "inline-flex";
           stopBtn.textContent = "⏸ Pause";
         } else {
-          // If TTS is turned off while speaking, stop audio
+          // Stop any in-progress audio
           if (TTS.audio) {
             TTS.audio.pause();
             TTS.audio.currentTime = 0;
@@ -4073,6 +4060,9 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
             URL.revokeObjectURL(TTS.objectUrl);
             TTS.objectUrl = null;
           }
+          // Clear the key field and in-memory key so the next person starts fresh
+          TTS.apiKey = "";
+          document.getElementById("elevenLabsKey").value = "";
           stopBtn.style.display = "none";
         }
         setTTSStatus(on ? "ready" : "");
@@ -4089,8 +4079,9 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
       }
 
       function _saveTTSPrefs() {
+        // Only persist the voice selection — never the API key.
+        // The key must be re-entered each session to prevent leakage between users.
         localStorage.setItem("fc_tts", JSON.stringify({
-          apiKey: TTS.apiKey,
           voiceId: TTS.voiceId,
         }));
       }
@@ -4396,16 +4387,14 @@ Provide JSON matching the schema. If can_score_reliably is false, **issues** may
           }
         }
 
-        // Restore TTS preferences (key/voice only — TTS stays off by default for privacy)
+        // Restore TTS voice preference only — never restore the API key from storage.
+        // Each user must enter their own key; persisting it causes key leakage between
+        // users sharing the same browser (e.g. demo sessions).
         const savedTTS = localStorage.getItem("fc_tts");
         if (savedTTS) {
           try {
             const t = JSON.parse(savedTTS);
-            if (t.apiKey) {
-              TTS.apiKey = t.apiKey;
-              const keyEl = document.getElementById("elevenLabsKey");
-              if (keyEl) keyEl.value = t.apiKey;
-            }
+            // Intentionally skip t.apiKey — do not restore it
             if (t.voiceId) {
               TTS.voiceId = t.voiceId;
               const voiceEl = document.getElementById("elevenVoice");
