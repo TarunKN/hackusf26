@@ -1,178 +1,97 @@
 # FormCoach — AI Fitness System
 
-An AI-powered personal fitness system built with **Google ADK** (Agent Development Kit) and **Gemini 2.5 Flash**. Four specialist agents — Form Coach, Nutritionist, Workout Planner, and Orchestrator — work together to keep you progressing safely.
+> **HackUSF 2026** · Built with Google ADK + Gemini 2.5 Flash
+
+An AI-powered personal fitness system with four specialist agents that work together: a **Form Coach** that analyzes your exercise technique via computer vision, a **Nutritionist** that calculates macros and suggests meals, a **Workout Planner** that builds periodized training programs, and an **Orchestrator** that coordinates everything and proactively connects signals across all agents.
+
+---
+
+## Demo
+
+```
+Frontend:  http://localhost:8000/ui/
+API:       http://localhost:8000/health
+```
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Browser (frontend/index.html)                          │
-│  • Onboarding  • Form Coach  • Nutrition  • Chat        │
-└────────────────────┬────────────────────────────────────┘
-                     │ HTTP / REST
-┌────────────────────▼────────────────────────────────────┐
-│  Nginx (port 80/443)                                    │
-│  • Serves static frontend                               │
-│  • Proxies /run /stream /sessions /upload → API         │
-└────────────────────┬────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────┐
-│  FastAPI + Google ADK  (api/main.py, port 8000)         │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Orchestrator Agent (root)                      │   │
-│  │  ├── Form Coach Agent  (Gemini Vision)          │   │
-│  │  ├── Nutrition Agent   (macro calc + meals)     │   │
-│  │  └── Workout Planner   (periodized plans)       │   │
-│  └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+Browser (frontend/index.html)
+    │
+    ├── Gemini Vision API ──────────────────── Form analysis (direct, client-side)
+    │
+    └── HTTP → FastAPI (api/main.py :8000)
+                │
+                └── Google ADK
+                        │
+                        ├── Orchestrator Agent  ← root, routes all messages
+                        │       ├── Form Coach Agent   (Gemini Vision)
+                        │       ├── Nutrition Agent    (macro calc + meals)
+                        │       └── Workout Planner    (periodized plans)
+                        │
+                        └── /run /stream /sessions  ← ADK endpoints
 ```
 
 ---
 
-## Quick Start (Local)
+## Quick Start
 
 ### 1. Prerequisites
 
 - Python 3.11+
 - A [Gemini API key](https://aistudio.google.com/app/apikey)
 
-### 2. Install dependencies
+### 2. Install
 
 ```bash
 cd hackusf26
 pip install -r requirements.txt
 ```
 
-### 3. Configure environment
+### 3. Configure
 
 ```bash
 cp .env.example .env
-# Edit .env and set your GEMINI_API_KEY
+# Edit .env — set GEMINI_API_KEY=AIza...
 ```
 
-`.env` contents:
-```
-GEMINI_API_KEY=AIza...
-GEMINI_MODEL=gemini-2.5-flash
-GEMINI_VISION_MODEL=gemini-2.5-flash
-```
-
-### 4. Run the API server
+### 4. Run
 
 ```bash
 python api/main.py
-# Server starts at http://localhost:8000
 ```
 
-### 5. Open the frontend
-
-Open `frontend/index.html` in your browser (or serve it with any static server):
-
-```bash
-# Python simple server
-python -m http.server 3000 --directory frontend
-# Then open http://localhost:3000
-```
-
-In the onboarding screen, set **API Base URL** to `http://localhost:8000` and enter your **Gemini API Key**.
+Open **`http://localhost:8000/ui/`** in your browser.
 
 ---
 
-## Docker (Local Container)
-
-### Build and run with Docker Compose
+## Expose Publicly (ngrok)
 
 ```bash
-# Copy and fill in your API key
-cp .env.example .env
-echo "GEMINI_API_KEY=AIza..." >> .env
+# Install ngrok: https://ngrok.com/download
+# Get authtoken: https://dashboard.ngrok.com/get-started/your-authtoken
 
-# Build and start
+~/bin/ngrok config add-authtoken YOUR_TOKEN
+~/bin/ngrok http 8000
+# → https://abc123.ngrok-free.app/ui/
+```
+
+Or use the helper script:
+```bash
+bash start-ngrok.sh
+```
+
+---
+
+## Docker
+
+```bash
+cp .env.example .env   # add GEMINI_API_KEY
 docker compose up --build
-
-# Open http://localhost in your browser
+# Open http://localhost/ui/
 ```
-
-The compose stack runs:
-- **`api`** — FastAPI + ADK backend on port 8000 (internal)
-- **`nginx`** — Serves frontend + proxies API on port 80
-
-### Build the API image only
-
-```bash
-docker build -t formcoach-api .
-docker run -p 8000:8000 -e GEMINI_API_KEY=AIza... formcoach-api
-```
-
----
-
-## Deploy to Fly.io
-
-### First-time setup
-
-```bash
-# Install flyctl: https://fly.io/docs/hands-on/install-flyctl/
-brew install flyctl   # macOS
-# or: curl -L https://fly.io/install.sh | sh
-
-# Login
-fly auth login
-
-# Create the app (only once)
-fly launch --no-deploy --name formcoach-ai --region mia
-
-# Set your Gemini API key as a secret
-fly secrets set GEMINI_API_KEY=AIza...
-
-# Create a persistent volume for uploads
-fly volumes create formcoach_uploads --region mia --size 1
-
-# Deploy
-fly deploy
-```
-
-### Subsequent deploys
-
-```bash
-fly deploy
-```
-
-### View logs
-
-```bash
-fly logs
-```
-
-### Open the live app
-
-```bash
-fly open
-```
-
----
-
-## Deploy to Railway
-
-1. Push this repo to GitHub
-2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo**
-3. Select this repository
-4. Add environment variable: `GEMINI_API_KEY=AIza...`
-5. Railway auto-detects the `Dockerfile` and deploys
-
-The frontend is served by nginx inside the container. Set the **API Base URL** in the app's onboarding to your Railway public URL.
-
----
-
-## Deploy to Render
-
-1. Push to GitHub
-2. Go to [render.com](https://render.com) → **New Web Service**
-3. Connect your repo, select **Docker** runtime
-4. Set environment variable: `GEMINI_API_KEY=AIza...`
-5. Deploy
 
 ---
 
@@ -181,31 +100,23 @@ The frontend is served by nginx inside the container. Set the **API Base URL** i
 ```
 hackusf26/
 ├── api/
-│   ├── main.py          # FastAPI entrypoint, mounts ADK app
-│   └── routes.py        # Additional REST routes
+│   └── main.py              # FastAPI entrypoint — mounts ADK + serves frontend
 ├── fitness-agents/
 │   └── agents/
-│       ├── orchestration/
-│       │   └── agent.py # Root orchestrator (entry point for ADK)
-│       ├── form_coach/
-│       │   ├── agent.py # Form Coach ADK agent
-│       │   └── vision.py# Gemini Vision API integration
-│       ├── nutrition/
-│       │   ├── agent.py # Nutrition ADK agent
-│       │   ├── macros.py# Deterministic macro calculations
-│       │   └── meal-planner.py
-│       └── workout_planner/
-│           └── agent.py # Workout Planner ADK agent
+│       ├── orchestration/   # Root orchestrator (ADK entry point)
+│       ├── form_coach/      # Form analysis via Gemini Vision
+│       ├── nutrition/       # Macro calculation + meal suggestions
+│       └── workout_planner/ # Periodized training plans
 ├── frontend/
-│   └── index.html       # Single-page app (vanilla JS)
+│   └── index.html           # Single-page app (vanilla JS, no build step)
 ├── shared/
-│   ├── config.py        # Environment config
-│   ├── schemas.py       # Pydantic schemas
-│   └── utils.py         # Shared utilities
-├── Dockerfile           # API container
-├── docker-compose.yml   # Full stack (API + nginx)
-├── nginx.conf           # Nginx: static frontend + API proxy
-├── fly.toml             # Fly.io deployment config
+│   ├── config.py            # Environment config
+│   ├── schemas.py           # Pydantic schemas shared across agents
+│   └── utils.py             # Logging callbacks, retry options
+├── Dockerfile               # API container
+├── docker-compose.yml       # Full stack (API + nginx)
+├── nginx.conf               # Nginx: static frontend + API proxy
+├── start-ngrok.sh           # One-command public URL via ngrok
 └── requirements.txt
 ```
 
@@ -213,29 +124,12 @@ hackusf26/
 
 ## Agents
 
-### Orchestrator
-The root agent. Every user message goes here first. It:
-- Routes to specialist sub-agents based on intent
-- Proactively connects signals (e.g. bad form → adjust workout plan)
-- Manages user profile and daily check-ins
-
-### Form Coach
-- Accepts image/video uploads via `/upload/form-image`
-- Calls **Gemini 2.5 Flash Vision** with a biomechanically-informed prompt
-- Returns a 0-100 form score, issues with severity, and coaching cues
-- Flags major issues to the orchestrator for workout plan adjustment
-- Results are automatically injected into the Orchestrator chat
-
-### Nutrition Agent
-- Calculates TDEE and macro targets (Mifflin-St Jeor equation)
-- Logs food entries and tracks daily totals vs. targets
-- Generates meal suggestions tailored to dietary restrictions and goals
-- Cross-references nutrition with scheduled training sessions
-
-### Workout Planner
-- Generates periodized weekly plans (PPL, Upper/Lower, Full Body)
-- Tracks session-by-session progression with RPE
-- Adjusts training load based on recovery signals (mood, energy, form flags)
+| Agent | Responsibility |
+|---|---|
+| **Orchestrator** | Root agent. Routes messages, proactively connects signals (e.g. bad form → adjust workout plan) |
+| **Form Coach** | Analyzes exercise form from images/video using Gemini 2.5 Flash Vision. Returns score, issues, coaching cues |
+| **Nutrition** | Calculates TDEE + macro targets (Mifflin-St Jeor). Logs food, generates meal suggestions |
+| **Workout Planner** | Builds PPL/Upper-Lower/Full Body plans. Tracks RPE, adjusts load based on recovery signals |
 
 ---
 
@@ -245,17 +139,21 @@ The root agent. Every user message goes here first. It:
 |---|---|---|
 | `GEMINI_API_KEY` | *(required)* | Google Gemini API key |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Model for agent reasoning |
-| `GEMINI_VISION_MODEL` | `gemini-2.5-flash` | Model for form analysis vision |
+| `GEMINI_VISION_MODEL` | `gemini-2.5-flash` | Model for form analysis |
 | `API_HOST` | `0.0.0.0` | FastAPI bind host |
 | `API_PORT` | `8000` | FastAPI bind port |
-| `UPLOAD_DIR` | `/tmp/formcoach_uploads` | Directory for uploaded images |
+| `UPLOAD_DIR` | `/tmp/formcoach_uploads` | Image upload directory |
 | `LOG_LEVEL` | `INFO` | Logging level |
-| `USE_CLOUD_LOGGING` | `false` | Enable Google Cloud Logging |
 
 ---
 
-## Development Notes
+## Features
 
-- The frontend calls the ADK `/run` endpoint directly. The ADK returns an **array of event objects**; the frontend parses the last `model` role event for the response text.
-- Form analysis runs **client-side** (Gemini Vision called directly from the browser with the user's API key) for low latency. The backend `analyze_exercise_form` tool is available for server-side analysis when the API key is configured server-side.
-- The `RETRY_OPTIONS` dict in `shared/config.py` is passed to `Gemini()` agents for automatic retry on rate limits.
+- **Form analysis** — Upload a photo or video of any exercise. Gemini Vision returns a verdict (excellent/good/decent/bad/dangerous), biomechanical issues with severity, and actionable coaching cues
+- **Form → Chat integration** — After every analysis, results are automatically injected into the Ask Coach chat with an orchestrator follow-up
+- **Macro calculator** — Personalized TDEE using Mifflin-St Jeor, adjusted per goal (fat loss, hypertrophy, strength, endurance)
+- **Meal suggestions** — Agent generates 3 tailored meal ideas respecting dietary restrictions and calorie budget
+- **Workout plans** — PPL, Upper/Lower, Full Body splits with RPE tracking and progressive overload
+- **Daily check-in** — Mood/energy logging that automatically adjusts training volume
+- **ElevenLabs TTS** — Coach speaks responses aloud (toggle in Ask Coach tab, free voices included)
+- **Onboarding** — Multi-step profile setup that personalizes all agents
