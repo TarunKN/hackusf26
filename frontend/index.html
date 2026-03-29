@@ -2070,11 +2070,38 @@
     uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag'); handleMedia(e.dataTransfer.files[0]); });
 
     let currentMediaFile = null;
+    /** Browsers often omit file.type (e.g. drag-drop on Windows); fall back on extension. */
+    function isVideoFile(file) {
+      if (file.type && file.type.startsWith('video/')) return true;
+      const n = (file.name || '').toLowerCase();
+      return /\.(mp4|webm|mov|mkv|avi|m4v|ogv|mpeg|mpg|3gp|wmv|flv)$/.test(n);
+    }
+
+    /** MIME for Gemini video inline_data (must match formats the API accepts). */
+    function guessVideoMime(file) {
+      if (file.type && file.type.startsWith('video/')) return file.type;
+      const n = (file.name || '').toLowerCase();
+      const ext = n.includes('.') ? n.slice(n.lastIndexOf('.')) : '';
+      const map = {
+        '.mp4': 'video/mp4', '.m4v': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mov': 'video/mov',
+        '.avi': 'video/avi',
+        '.mpeg': 'video/mpeg', '.mpg': 'video/mpg',
+        '.wmv': 'video/wmv',
+        '.flv': 'video/x-flv',
+        '.3gp': 'video/3gpp', '.3gpp': 'video/3gpp',
+        '.ogv': 'video/webm',
+        '.mkv': 'video/mp4'
+      };
+      return map[ext] || 'video/mp4';
+    }
+
     function handleMedia(file) {
       if (!file) return;
       currentMediaFile = file;
       const url = URL.createObjectURL(file);
-      const isVid = file.type.startsWith('video/');
+      const isVid = isVideoFile(file);
       const previewEl = document.getElementById('mediaPreview');
       previewEl.innerHTML = isVid
         ? `<video src="${url}" controls muted style="width:100%;border-radius:8px;max-height:280px;background:#000"></video>`
@@ -2108,12 +2135,17 @@
       document.getElementById('formResults').style.display = 'none';
 
       try {
+        const vid = isVideoFile(currentMediaFile);
+        const maxInline = 20 * 1024 * 1024;
+        if (vid && currentMediaFile.size > maxInline) {
+          alert('Video is larger than 20MB. Trim or compress the clip, then try again (inline limit).');
+          return;
+        }
         const b64 = await fileToB64(currentMediaFile);
-        const mime = currentMediaFile.type.startsWith('video/') ? 'image/jpeg' : currentMediaFile.type;
-        const finalB64 = currentMediaFile.type.startsWith('video/') ? await videoFrame(currentMediaFile) : b64;
+        const mime = vid ? guessVideoMime(currentMediaFile) : (currentMediaFile.type || 'image/jpeg');
 
-        const prompt = buildFormPrompt(exercise, S.profile.experience_level || 'intermediate', getFocusAreas(), S.profile.injuries || []);
-        const result = await callGeminiVision(finalB64, mime, prompt);
+        const prompt = buildFormPrompt(exercise, S.profile.experience_level || 'intermediate', getFocusAreas(), S.profile.injuries || [], vid);
+        const result = await callGeminiVision(b64, mime, prompt);
 
         S.formAnalyses.push({ ...result, exercise });
         renderFormResults(result, exercise);
@@ -2125,11 +2157,14 @@
       document.getElementById('analysisLabel').textContent = 'Analyze form';
     }
 
-    function buildFormPrompt(exercise, level, focus, injuries) {
+    function buildFormPrompt(exercise, level, focus, injuries, isVideo) {
       const injLine = injuries.length ? `\nKnown injury history: ${injuries.join(', ')}. Flag any movement that could aggravate these.` : '';
       const focusStr = focus.length ? focus.join(', ') : 'overall form and safety';
+      const mediaLine = isVideo
+        ? `Analyze the athlete's form in this video (use motion and timing across frames) for: ${exercise}.`
+        : `Analyze the athlete's form in this image for: ${exercise}.`;
       return `You are an expert strength and conditioning coach with deep biomechanical knowledge.
-Analyze the athlete's form in this image for: ${exercise}.
+${mediaLine}
 Experience level: ${level}.${injLine}
 Focus on: ${focusStr}.
 
@@ -2545,23 +2580,6 @@ Provide your assessment matching the requested JSON schema.
         r.onload = () => res(r.result.split(',')[1]);
         r.onerror = rej;
         r.readAsDataURL(file);
-      });
-    }
-
-    async function videoFrame(file) {
-      return new Promise((res, rej) => {
-        const video = document.createElement('video');
-        const canvas = document.createElement('canvas');
-        video.src = URL.createObjectURL(file);
-        video.muted = true;
-        video.onloadeddata = () => { video.currentTime = video.duration * 0.25; };
-        video.onseeked = () => {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          canvas.getContext('2d').drawImage(video, 0, 0);
-          res(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
-        };
-        video.onerror = rej;
       });
     }
 
