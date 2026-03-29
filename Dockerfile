@@ -35,10 +35,11 @@ EXPOSE 8000
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run with 1 worker (fits in 256MB), no reload in production
-CMD ["python", "-m", "uvicorn", "api.main:api", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "1", \
-     "--timeout-keep-alive", "30", \
-     "--log-level", "info"]
+# Run with 1 worker (fits in 256MB), no reload in production.
+# Use shell form so $PORT is expanded — Railway injects PORT at runtime.
+CMD python -m uvicorn api.main:api \
+    --host 0.0.0.0 \
+    --port ${PORT:-8000} \
+    --workers 1 \
+    --timeout-keep-alive 30 \
+    --log-level info

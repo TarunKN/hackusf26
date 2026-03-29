@@ -22,7 +22,8 @@ RETRY_ATTEMPTS        = int(os.getenv("RETRY_ATTEMPTS", "3"))
 
 # ── API ───────────────────────────────────────────────────────────────────────
 API_HOST              = os.getenv("API_HOST", "0.0.0.0")
-API_PORT              = int(os.getenv("API_PORT", "8000"))
+# Railway (and many PaaS) inject PORT; fall back to API_PORT, then 8000
+API_PORT              = int(os.getenv("PORT") or os.getenv("API_PORT", "8000"))
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 USE_CLOUD_LOGGING     = os.getenv("USE_CLOUD_LOGGING", "false").lower() == "true"
