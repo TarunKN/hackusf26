@@ -2912,14 +2912,6 @@
 
         try {
           const vid = isAllowedFormVideo(currentMediaFile);
-          const maxInline = 20 * 1024 * 1024;
-          if (vid && currentMediaFile.size > maxInline) {
-            alert(
-              "Video is larger than 20MB. Trim or compress the clip, then try again (inline limit).",
-            );
-            return;
-          }
-          const b64 = await fileToB64(currentMediaFile);
           const mime = vid
             ? guessVideoMime(currentMediaFile)
             : currentMediaFile.type || "image/jpeg";
@@ -2931,7 +2923,25 @@
             S.profile.injuries || [],
             vid,
           );
-          const result = await callGeminiVision(b64, mime, prompt);
+
+          let result;
+          if (vid) {
+            // Use Gemini File API for videos so all frames are analysed
+            document.getElementById("analysisLabel").textContent = "Uploading video…";
+            const fileUri = await uploadVideoToGeminiFileAPI(currentMediaFile, mime);
+            document.getElementById("analysisLabel").textContent = "Analyzing…";
+            result = await callGeminiVisionFileUri(fileUri, mime, prompt);
+          } else {
+            const maxInline = 20 * 1024 * 1024;
+            if (currentMediaFile.size > maxInline) {
+              alert("Image is larger than 20MB. Please use a smaller file.");
+              setLoading("analysisSpin", false);
+              document.getElementById("analysisLabel").textContent = "Analyze form";
+              return;
+            }
+            const b64 = await fileToB64(currentMediaFile);
+            result = await callGeminiVision(b64, mime, prompt);
+          }
 
           S.formAnalyses.push({ ...result, exercise });
           renderFormResults(result, exercise);
@@ -2990,6 +3000,161 @@ Use this order from best to worst: excellent → good → decent → bad → dan
 
 Provide JSON matching the schema. If can_score_reliably is false, **issues** may be empty; **cues** = filming tips. If can_score_reliably is true: up to 5 issues if any; 3–5 coaching cues.
 - You MUST stop after the analysis.`;
+      }
+
+      /**
+       * Upload a video file to the Gemini File API (resumable upload),
+       * poll until the file state is ACTIVE, then return the file URI.
+       * This enables full multi-frame video analysis instead of single-frame inline.
+       */
+      async function uploadVideoToGeminiFileAPI(file, mime) {
+        const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${S.geminiKey}`;
+
+        // Step 1: Initiate resumable upload
+        const initResp = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "X-Goog-Upload-Protocol": "resumable",
+            "X-Goog-Upload-Command": "start",
+            "X-Goog-Upload-Header-Content-Length": file.size,
+            "X-Goog-Upload-Header-Content-Type": mime,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ file: { display_name: file.name } }),
+        });
+        if (!initResp.ok) {
+          const e = await initResp.json().catch(() => ({}));
+          throw new Error(e.error?.message || `File API init error ${initResp.status}`);
+        }
+        const resumableUri = initResp.headers.get("X-Goog-Upload-URL");
+        if (!resumableUri) throw new Error("No resumable upload URL returned from File API.");
+
+        // Step 2: Upload the file bytes
+        const uploadResp = await fetch(resumableUri, {
+          method: "POST",
+          headers: {
+            "Content-Length": file.size,
+            "X-Goog-Upload-Offset": "0",
+            "X-Goog-Upload-Command": "upload, finalize",
+          },
+          body: file,
+        });
+        if (!uploadResp.ok) {
+          const e = await uploadResp.json().catch(() => ({}));
+          throw new Error(e.error?.message || `File upload error ${uploadResp.status}`);
+        }
+        const uploadData = await uploadResp.json();
+        const fileUri = uploadData.file?.uri;
+        const fileName = uploadData.file?.name;
+        if (!fileUri) throw new Error("No file URI returned after upload.");
+
+        // Step 3: Poll until file state is ACTIVE (processing can take a few seconds)
+        const statusUrl = `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${S.geminiKey}`;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await new Promise((r) => setTimeout(r, 2000));
+          const statusResp = await fetch(statusUrl);
+          if (!statusResp.ok) break; // proceed anyway and let Gemini reject if not ready
+          const statusData = await statusResp.json();
+          if (statusData.state === "ACTIVE") return fileUri;
+          if (statusData.state === "FAILED") throw new Error("Video processing failed on Gemini servers.");
+          // state === "PROCESSING" — keep polling
+          document.getElementById("analysisLabel").textContent =
+            `Processing video… (${attempt + 1})`;
+        }
+        // If we exit the loop without ACTIVE, try anyway
+        return fileUri;
+      }
+
+      /**
+       * Call Gemini generateContent using a File API URI (for videos).
+       * Uses file_data instead of inline_data so the full video is analysed.
+       */
+      async function callGeminiVisionFileUri(fileUri, mime, prompt) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${S.geminiKey}`;
+        const body = {
+          contents: [
+            {
+              parts: [
+                { file_data: { mime_type: mime, file_uri: fileUri } },
+                { text: prompt },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0,
+            topP: 0.95,
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                inferred_exercise: { type: "STRING" },
+                selection_matches_video: { type: "BOOLEAN" },
+                view_confidence: { type: "STRING" },
+                camera_limitations: { type: "STRING", nullable: true },
+                can_score_reliably: { type: "BOOLEAN" },
+                form_verdict: { type: "STRING" },
+                label: { type: "STRING" },
+                summary: { type: "STRING" },
+                safe_to_continue: { type: "BOOLEAN" },
+                issues: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      title: { type: "STRING" },
+                      description: { type: "STRING" },
+                      severity: { type: "STRING" },
+                      cue: { type: "STRING" },
+                    },
+                  },
+                },
+                cues: { type: "ARRAY", items: { type: "STRING" } },
+                visibility_notes: { type: "STRING", nullable: true },
+              },
+            },
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+          ],
+        };
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!r.ok) {
+          const e = await r.json();
+          throw new Error(e.error?.message || "Gemini error");
+        }
+        const d = await r.json();
+        const candidate = d.candidates?.[0];
+        if (!candidate) {
+          const msg = d.error?.message || d.promptFeedback?.blockReason || "No response from model (blocked or empty).";
+          throw new Error(msg);
+        }
+        if (candidate.finishReason && candidate.finishReason !== "STOP") {
+          throw new Error("Analysis stopped unexpectedly (Finish reason: " + candidate.finishReason + ").");
+        }
+        const part = candidate.content?.parts?.[0];
+        const txt = part?.text;
+        if (!txt) throw new Error("No text in model response.");
+        let parsed;
+        try {
+          parsed = JSON.parse(txt.replace(/```json|```/g, "").trim());
+        } catch (e) {
+          throw new Error("Could not parse analysis JSON. Try again.");
+        }
+        if (parsed.can_score_reliably === false) parsed.form_verdict = "unclear";
+        const fv = (parsed.form_verdict || "").toLowerCase().trim();
+        const allowed = ["excellent", "good", "decent", "bad", "dangerous", "unclear"];
+        if (allowed.includes(fv)) parsed.form_verdict = fv;
+        else parsed.form_verdict = "decent";
+        if (parsed.form_verdict === "dangerous") parsed.safe_to_continue = false;
+        return parsed;
       }
 
       async function callGeminiVision(b64, mime, prompt) {
